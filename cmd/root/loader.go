@@ -28,9 +28,10 @@ func loadExternalCommand(rootCmd *cobra.Command, path string) {
 
 	cmd := plugCommand()
 	if cmd, _, _ := rootCmd.Find([]string{cmd.Name()}); cmd != rootCmd {
-		log.Debugf("command '%s' provided by '%s' is already registered", cmd.Name(), path)
+		log.Debugf("cannot register aleready registered command '%s' provided by '%s'", cmd.Name(), path)
 		return
 	}
 
+	log.Debugf("registered command '%s' provided by '%s'", cmd.Name(), path)
 	rootCmd.AddCommand(cmd)
 }

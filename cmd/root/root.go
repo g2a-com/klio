@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	getCommand "stash.code.g2a.com/CLI/core/cmd/get"
 	"stash.code.g2a.com/CLI/core/pkg/discover"
 	"stash.code.g2a.com/CLI/core/pkg/log"
 )
@@ -33,6 +34,9 @@ servers like Jenkins, Bamboo or TeamCity.`,
 	cmd.PersistentFlags().Parse(os.Args)
 	log.SetLevel(*logLevel, log.InfoLevel)
 	log.IncreaseLevel(*verbosity)
+
+	// Register builtin commands
+	cmd.AddCommand(getCommand.NewCommand())
 
 	// Register local commands (installed under project directory)
 	for _, path := range discover.LocalCommandPaths() {
