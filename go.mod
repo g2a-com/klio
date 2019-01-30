@@ -1,4 +1,4 @@
-module stash.code.g2a.com/CLI/core
+module github.com/g2a-com/klio
 
 require (
 	github.com/Masterminds/semver v1.4.2

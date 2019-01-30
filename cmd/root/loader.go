@@ -4,7 +4,7 @@ import (
 	"plugin"
 
 	"github.com/spf13/cobra"
-	"stash.code.g2a.com/CLI/core/pkg/log"
+	"github.com/g2a-com/klio/pkg/log"
 )
 
 func loadExternalCommand(rootCmd *cobra.Command, path string) {

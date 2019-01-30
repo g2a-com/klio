@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	cmd "stash.code.g2a.com/CLI/core/cmd/root"
+	cmd "github.com/g2a-com/klio/cmd/root"
 )
 
 func main() {

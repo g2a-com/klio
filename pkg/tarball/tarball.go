@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"stash.code.g2a.com/CLI/core/pkg/log"
+	"github.com/g2a-com/klio/pkg/log"
 )
 
 // Extract extracts tar.gz archive into specified directory

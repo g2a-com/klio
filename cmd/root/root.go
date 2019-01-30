@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	getCommand "stash.code.g2a.com/CLI/core/cmd/get"
-	"stash.code.g2a.com/CLI/core/pkg/discover"
-	"stash.code.g2a.com/CLI/core/pkg/log"
+	getCommand "github.com/g2a-com/klio/cmd/get"
+	"github.com/g2a-com/klio/pkg/discover"
+	"github.com/g2a-com/klio/pkg/log"
 )
 
 // NewCommand returns root command for a G2A CLI

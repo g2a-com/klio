@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"stash.code.g2a.com/CLI/core/pkg/log"
-	"stash.code.g2a.com/CLI/core/pkg/tarball"
+	"github.com/g2a-com/klio/pkg/log"
+	"github.com/g2a-com/klio/pkg/tarball"
 )
 
 type artifactoryFolder struct {
