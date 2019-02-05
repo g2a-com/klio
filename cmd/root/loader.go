@@ -1,37 +1,52 @@
 package root
 
 import (
-	"plugin"
+	"os"
+
+	"path"
 
 	"github.com/spf13/cobra"
 	"github.com/g2a-com/klio/pkg/log"
+	"github.com/g2a-com/klio/pkg/runner"
+	"github.com/g2a-com/klio/pkg/util"
 )
 
-func loadExternalCommand(rootCmd *cobra.Command, path string) {
-	plug, err := plugin.Open(path)
-	if err != nil {
-		log.Warnf("cannot open plugin '%s': %v", path, err)
+type packageJson struct {
+	Description string `json:"description"`
+	Version     string `json:"version"`
+	BinPath     string `json:"binPath" validate:"required,file"`
+}
+
+func loadExternalCommand(rootCmd *cobra.Command, packageJsonPath string) {
+	cmdDir := path.Dir(packageJsonPath)
+
+	cmdName := path.Base(path.Dir(packageJsonPath))
+	if cmd, _, _ := rootCmd.Find([]string{cmdName}); cmd != rootCmd {
+		log.Debugf("cannot register already registered command '%s' provided by '%s'", cmdName, cmdDir)
 		return
 	}
 
-	symbol, err := plug.Lookup("NewCommand")
-	if err != nil {
-		log.Warnf("cannot find NewCommand symbol in the plugin '%s': %v", path, err)
+	cmdConfig := &packageJson{}
+	if err := util.LoadConfigFile(cmdConfig, packageJsonPath); err != nil {
+		log.Warnf("cannot load command: %s", err)
 		return
 	}
 
-	plugCommand, ok := symbol.(func() *cobra.Command)
-	if !ok {
-		log.Warnf("cannot find NewCommand symbol in the plugin '%s': %v", path, err)
-		return
+	cmd := &cobra.Command{
+		Use:                cmdName,
+		Short:              cmdConfig.Description,
+		Long:               "",
+		DisableFlagParsing: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			externalCmdPath := path.Join(cmdDir, cmdConfig.BinPath)
+			externalCmd := runner.NewCommand(externalCmdPath, args...)
+			externalCmd.DecorateOutput = false
+			err := externalCmd.Run()
+			if err != nil {
+				os.Exit(1)
+			}
+		},
+		Version: cmdConfig.Version,
 	}
-
-	cmd := plugCommand()
-	if cmd, _, _ := rootCmd.Find([]string{cmd.Name()}); cmd != rootCmd {
-		log.Debugf("cannot register aleready registered command '%s' provided by '%s'", cmd.Name(), path)
-		return
-	}
-
-	log.Debugf("registered command '%s' provided by '%s'", cmd.Name(), path)
 	rootCmd.AddCommand(cmd)
 }

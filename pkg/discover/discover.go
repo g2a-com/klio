@@ -71,7 +71,7 @@ func LocalCommandPaths() []string {
 		return []string{}
 	}
 
-	globPattern := filepath.Join(projectDir, filepath.FromSlash(".g2a/cli-commands/*/command.so"))
+	globPattern := filepath.Join(projectDir, filepath.FromSlash(".g2a/cli-commands/*/package.json"))
 	paths, err := filepath.Glob(globPattern)
 
 	if err != nil {
@@ -90,7 +90,7 @@ func UserCommandPaths() []string {
 		return []string{}
 	}
 
-	globPattern := filepath.Join(homeDir, filepath.FromSlash(".g2a/cli-commands/*/command.so"))
+	globPattern := filepath.Join(homeDir, filepath.FromSlash(".g2a/cli-commands/*/package.json"))
 	paths, err := filepath.Glob(globPattern)
 
 	if err != nil {

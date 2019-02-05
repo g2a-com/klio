@@ -32,8 +32,12 @@ servers like Jenkins, Bamboo or TeamCity.`,
 	// manually. As far as I checked, this doesn't interfere with cobra parsing
 	// rest of the flags later on.
 	cmd.PersistentFlags().Parse(os.Args)
+
+	// Set log level. In order to pass log level to installed subcommands we need
+	// set env variable as well.
 	log.SetLevel(*logLevel)
 	log.IncreaseLevel(*verbosity)
+	os.Setenv("G2A_CLI_LOG_LEVEL", log.GetLevel())
 
 	// Register builtin commands
 	cmd.AddCommand(getCommand.NewCommand())

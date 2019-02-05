@@ -1,6 +1,10 @@
 package log
 
-import "github.com/kataras/golog"
+import (
+	"os"
+
+	"github.com/kataras/golog"
+)
 
 // Following functions are based on golog default logging methods:
 // https://github.com/kataras/golog/blob/master/golog.go
@@ -22,6 +26,16 @@ func SetLevel(levelName string) {
 // GetDefaultLevel returns default logging level name
 func GetDefaultLevel() string {
 	return levels[DefaultLevel].Name
+}
+
+// SetLevelFromEnv sets minimum level for logs based on environment variables
+func SetLevelFromEnv() {
+	SetLevel(os.Getenv("G2A_CLI_LOG_LEVEL"))
+}
+
+// GetLevel returns current logging level name
+func GetLevel() string {
+	return levels[logger.Level].Name
 }
 
 // IncreaseLevel changes current level by specified number
@@ -114,10 +128,12 @@ func Spamf(format string, args ...interface{}) {
 	logger.Logf(SpamLevel, format, args...)
 }
 
-// Child (creates if not exists and) returns a new child
-// Logger based on the "l"'s fields.
-//
-// Can be used to separate logs by category.
-func Child(name string) *golog.Logger {
-	return logger.Child(name)
+// Log prints message with specified level
+func Log(level Level, v ...interface{}) {
+	logger.Log(golog.Level(level), v...)
+}
+
+// Logf prints message with specified level
+func Logf(level Level, format string, args ...interface{}) {
+	logger.Logf(golog.Level(level), format, args...)
 }
