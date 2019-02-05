@@ -25,14 +25,14 @@ servers like Jenkins, Bamboo or TeamCity.`,
 
 	// Setup flags
 	verbosity := cmd.PersistentFlags().CountP("verbose", "v", "more verbose output (-vv... to further increase verbosity)")
-	logLevel := cmd.PersistentFlags().String("log-level", "info", "set logs level: "+strings.Join(log.LevelNames, ", "))
+	logLevel := cmd.PersistentFlags().String("log-level", log.GetDefaultLevel(), "set logs level: "+strings.Join(log.LevelNames, ", "))
 
 	// Normally flags are parsed by cobra on Execute(), but we need to determine
 	// logging level before executing command, so Parse() needs to be called here
 	// manually. As far as I checked, this doesn't interfere with cobra parsing
 	// rest of the flags later on.
 	cmd.PersistentFlags().Parse(os.Args)
-	log.SetLevel(*logLevel, log.InfoLevel)
+	log.SetLevel(*logLevel)
 	log.IncreaseLevel(*verbosity)
 
 	// Register builtin commands

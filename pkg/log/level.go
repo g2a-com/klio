@@ -33,6 +33,12 @@ const (
 	SpamLevel
 )
 
+// DefaultLevel represents default level for non-error logs
+const DefaultLevel = InfoLevel
+
+// DefaultErrorLevel represents default level for error logs
+const DefaultErrorLevel = ErrorLevel
+
 // LevelNames contains all supported names of logging levels
 var LevelNames = []string{"disable", "fatal", "error", "warn", "info", "verbose", "debug", "spam"}
 

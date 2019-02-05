@@ -8,15 +8,20 @@ import "github.com/kataras/golog"
 var logger = newLogger()
 
 // SetLevel sets minimum level for logs, logs with level above specified value will not be printed
-func SetLevel(levelName string, defaultLevel Level) {
+func SetLevel(levelName string) {
 	for level, meta := range levels {
 		if meta.Name == levelName {
 			logger.Level = level
 			return
 		}
 	}
-	logger.Level = golog.Level(defaultLevel)
+	logger.Level = DefaultLevel
 	return
+}
+
+// GetDefaultLevel returns default logging level name
+func GetDefaultLevel() string {
+	return levels[DefaultLevel].Name
 }
 
 // IncreaseLevel changes current level by specified number
