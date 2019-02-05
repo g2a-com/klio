@@ -51,7 +51,7 @@ var levels = map[golog.Level]*golog.LevelMetadata{
 	golog.Level(FatalLevel): {
 		Name:         "fatal",
 		RawText:      "[FATA]",
-		ColorfulText: "\x1b[41m[FATA]\x1b[0m",
+		ColorfulText: "\x1b[31m[FATA]\x1b[0m",
 	},
 	golog.Level(ErrorLevel): {
 		Name:         "error",
