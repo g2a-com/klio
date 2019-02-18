@@ -6,28 +6,22 @@ import (
 	"path"
 
 	"github.com/spf13/cobra"
+	"stash.code.g2a.com/cli/common/pkg/config"
 	"github.com/g2a-com/klio/pkg/log"
 	"github.com/g2a-com/klio/pkg/runner"
-	"github.com/g2a-com/klio/pkg/util"
 )
 
-type packageJson struct {
-	Description string `json:"description"`
-	Version     string `json:"version"`
-	BinPath     string `json:"binPath" validate:"required,file"`
-}
+func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string) {
+	cmdDir := path.Dir(commandConfigPath)
 
-func loadExternalCommand(rootCmd *cobra.Command, packageJsonPath string) {
-	cmdDir := path.Dir(packageJsonPath)
-
-	cmdName := path.Base(path.Dir(packageJsonPath))
+	cmdName := path.Base(path.Dir(commandConfigPath))
 	if cmd, _, _ := rootCmd.Find([]string{cmdName}); cmd != rootCmd {
 		log.Debugf("cannot register already registered command '%s' provided by '%s'", cmdName, cmdDir)
 		return
 	}
 
-	cmdConfig := &packageJson{}
-	if err := util.LoadConfigFile(cmdConfig, packageJsonPath); err != nil {
+	cmdConfig, err := config.LoadCommandConfig(commandConfigPath)
+	if err != nil {
 		log.Warnf("cannot load command: %s", err)
 		return
 	}

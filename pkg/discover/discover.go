@@ -90,7 +90,7 @@ func UserCommandPaths() []string {
 		return []string{}
 	}
 
-	globPattern := filepath.Join(homeDir, filepath.FromSlash(".g2a/cli-commands/*/package.json"))
+	globPattern := filepath.Join(homeDir, filepath.FromSlash(".g2a/cli-commands/*/command.yaml"))
 	paths, err := filepath.Glob(globPattern)
 
 	if err != nil {
