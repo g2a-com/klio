@@ -15,17 +15,21 @@ type writer struct {
 	LogPrefix      string
 	Level          log.Level
 	DecorateOutput bool
+	Text           *string
 }
 
 func (writer *writer) Write(data []byte) (int, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
+		text := scanner.Text()
+		*writer.Text += text
+
 		if !writer.DecorateOutput {
-			log.Println(scanner.Text())
+			log.Println(text)
 		} else if writer.LogPrefix != "" {
-			log.Logf(writer.Level, "[%s] %s", writer.LogPrefix, scanner.Text())
+			log.Logf(writer.Level, "[%s] %s", writer.LogPrefix, text)
 		} else {
-			log.Logf(writer.Level, "%s", scanner.Text())
+			log.Logf(writer.Level, "%s", text)
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -40,6 +44,8 @@ type Command struct {
 	DecorateOutput bool
 	StdoutLevel    log.Level
 	StderrLevel    log.Level
+	StdoutText     string
+	StderrText     string
 	LogPrefix      string
 }
 
@@ -50,23 +56,25 @@ func NewCommand(cmd string, args ...string) *Command {
 		DecorateOutput: true,
 		StdoutLevel:    log.DefaultLevel,
 		StderrLevel:    log.DefaultErrorLevel,
-		LogPrefix:      path.Base(cmd),
+		LogPrefix:      strings.ToUpper(path.Base(cmd)),
 	}
 }
 
 func (cmd *Command) Run() error {
-	log.Spamf(`running %s "%s"`, cmd.Command, strings.Join(cmd.Args, `" "`))
+	log.Debugf(`running %s "%s"`, cmd.Command, strings.Join(cmd.Args, `" "`))
 	externalCmd := exec.Command(cmd.Command, cmd.Args...)
 	externalCmd.Stdin = os.Stdin
 	externalCmd.Stdout = &writer{
 		Level:          cmd.StdoutLevel,
 		LogPrefix:      cmd.LogPrefix,
 		DecorateOutput: cmd.DecorateOutput,
+		Text:           &cmd.StdoutText,
 	}
 	externalCmd.Stderr = &writer{
 		Level:          cmd.StderrLevel,
 		LogPrefix:      cmd.LogPrefix,
 		DecorateOutput: cmd.DecorateOutput,
+		Text:           &cmd.StderrText,
 	}
 	return externalCmd.Run()
 }
