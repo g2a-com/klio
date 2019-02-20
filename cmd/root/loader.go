@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"stash.code.g2a.com/cli/common/pkg/config"
+	"stash.code.g2a.com/cli/common/pkg/runner"
 	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/runner"
 )
 
 func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string) {
