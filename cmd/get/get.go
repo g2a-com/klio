@@ -58,6 +58,13 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 	}
 
 	dir := filepath.Join(baseDir, filepath.FromSlash(".g2a/cli-commands"))
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			log.Errorf("unable to create directory: %s due to %s", dir, err)
+			os.Exit(1)
+		}
+	}
 
 	registry, err := registry.New(opts.Registry)
 	if err != nil {
