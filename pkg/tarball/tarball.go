@@ -50,6 +50,9 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 				return err
 			}
 			defer outFile.Close()
+			if err = outFile.Chmod(os.FileMode(header.Mode)); err != nil {
+				return err
+			}
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return err
 			}
