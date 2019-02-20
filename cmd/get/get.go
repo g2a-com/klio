@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 
+	"stash.code.g2a.com/cli/common/pkg/config"
 	"github.com/g2a-com/klio/pkg/discover"
 	"github.com/g2a-com/klio/pkg/registry"
 
@@ -21,6 +22,7 @@ const defaultRegistry = "https://artifactory.code.g2a.com/artifactory/api/storag
 type options struct {
 	Global   bool
 	Registry string
+	NoSave   bool
 }
 
 // NewCommand creates a new get command
@@ -36,6 +38,7 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&opts.Global, "global", "g", false, "install command globally")
 	cmd.Flags().StringVar(&opts.Registry, "registry", defaultRegistry, "change address to the registry")
+	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "prevent saving to dependencies")
 
 	return cmd
 }
@@ -43,7 +46,9 @@ func NewCommand() *cobra.Command {
 func (opts *options) run(cmd *cobra.Command, args []string) {
 	// Find directory for installing packages
 	var baseDir string
+	var projectConfig *config.ProjectConfig
 	var ok bool
+	var err error
 
 	if opts.Global {
 		baseDir, ok = discover.UserHomeDir()
@@ -54,6 +59,27 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 		baseDir, ok = discover.ProjectRootDir()
 		if !ok {
 			log.Fatal(`packages can be installed locally only under project directory, use "--global" option`)
+		}
+		projectConfig, err = config.LoadProjectConfig(filepath.Join(baseDir, "g2a.yaml"))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	var commandsToInstall map[string]string
+
+	if len(args) == 0 && !opts.Global {
+		opts.NoSave = true // don't save g2a.yaml when installing from it
+		commandsToInstall = projectConfig.CLI.Commands
+	} else {
+		commandsToInstall = map[string]string{}
+		for _, arg := range args {
+			argParts := strings.SplitN(arg, "@", 2)
+			if len(argParts) == 1 {
+				commandsToInstall[argParts[0]] = "*"
+			} else {
+				commandsToInstall[argParts[0]] = argParts[1]
+			}
 		}
 	}
 
@@ -74,19 +100,12 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 
 	// Download packages
 	exitCode := 0
+	installedCommands := map[string]string{}
 
-	for _, arg := range args {
-		argParts := strings.SplitN(arg, "@", 2)
-		cmdName := argParts[0]
-		versionRange := "*"
-
-		if len(argParts) >= 2 {
-			versionRange = argParts[1]
-		}
-
+	for cmdName, versionRange := range commandsToInstall {
 		versionConstraint, err := semver.NewConstraint(versionRange)
 		if err != nil {
-			log.Errorf("invalid version range %s", arg)
+			log.Errorf("invalid version range %s@%s", cmdName, versionRange)
 			exitCode = 1
 			continue
 		}
@@ -97,23 +116,34 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 			exitCode = 1
 			continue
 		}
-		log.Spamf("found following versions for %s: %s", arg, versions.String())
+		log.Spamf("found following versions for %s@%s: %s", cmdName, versionRange, versions.String())
 
 		cmdVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
 		if !ok {
-			log.Errorf("no matching version found for %s", arg)
+			log.Errorf("no matching version found for %s@%s", cmdName, versionRange)
 			exitCode = 1
 			continue
 		}
-		log.Spamf("found matching version for %s: %s", arg, versions)
+		log.Spamf("found matching version for %s@%s: %s", cmdName, versionRange, versions)
 
 		err = registry.DownloadCommand(cmdName, cmdVersion, dir)
 		if err != nil {
-			exitCode = 1
 			log.Errorf("failed to download %s@%s: %s", cmdName, cmdVersion.Version, err)
+			exitCode = 1
+			continue
 		} else {
 			log.Infof("downloaded %s@%s", cmdName, cmdVersion.Version)
 		}
+
+		installedCommands[cmdName] = cmdVersion.Version.String()
+	}
+
+	if !opts.Global && !opts.NoSave {
+		for c, v := range installedCommands {
+			projectConfig.CLI.Commands[c] = v
+		}
+		config.SaveProjectConfig(projectConfig)
+		log.Infof("updated commands list in the g2a.yaml file")
 	}
 
 	os.Exit(exitCode)
