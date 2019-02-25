@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/g2a-com/klio/pkg/log"
 )
@@ -50,8 +51,10 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 				return err
 			}
 			defer outFile.Close()
-			if err = outFile.Chmod(os.FileMode(header.Mode)); err != nil {
-				return err
+			if runtime.GOOS != "windows" {
+				if err = outFile.Chmod(os.FileMode(header.Mode)); err != nil {
+					return err
+				}
 			}
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return err
