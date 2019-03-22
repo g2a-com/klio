@@ -2,12 +2,12 @@ package root
 
 import (
 	"os"
-
+	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"stash.code.g2a.com/cli/common/pkg/config"
-	"stash.code.g2a.com/cli/common/pkg/runner"
 	"github.com/g2a-com/klio/pkg/log"
 )
 
@@ -33,8 +33,12 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string) {
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			externalCmdPath := path.Join(cmdDir, cmdConfig.BinPath)
-			externalCmd := runner.NewCommand(externalCmdPath, args...)
-			externalCmd.DecorateOutput = false
+			externalCmd := exec.Command(externalCmdPath, args...)
+			externalCmd.Stdin = os.Stdin
+			externalCmd.Stdout = os.Stdout
+			externalCmd.Stderr = os.Stderr
+
+			log.Debugf(`running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
 			err := externalCmd.Run()
 			if err != nil {
 				os.Exit(1)

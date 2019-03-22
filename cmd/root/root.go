@@ -20,7 +20,7 @@ G2A services, with an emphasis on automation. It unifies and generalises all
 work you need to do in order to run, build and deploy G2A services. G2A CLI is
 intended to be used the same way on developer’s local machine or on CI/CD
 servers like Jenkins, Bamboo or TeamCity.`,
-		Version: "2.0.0-alpha.1",
+		Version: "2.0.1",
 	}
 
 	// Setup flags
