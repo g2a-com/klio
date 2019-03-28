@@ -39,6 +39,9 @@ const DefaultLevel = InfoLevel
 // DefaultErrorLevel represents default level for error logs
 const DefaultErrorLevel = ErrorLevel
 
+// MaxLevel represents maximum level for logs
+const MaxLevel = SpamLevel
+
 // LevelNames contains all supported names of logging levels
 var LevelNames = []string{"disable", "fatal", "error", "warn", "info", "verbose", "debug", "spam"}
 

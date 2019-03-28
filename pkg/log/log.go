@@ -40,7 +40,13 @@ func GetLevel() string {
 
 // IncreaseLevel changes current level by specified number
 func IncreaseLevel(levels int) {
-	logger.Level += golog.Level(levels)
+	newLevel := logger.Level + golog.Level(levels)
+
+	if newLevel > MaxLevel {
+		logger.Level = MaxLevel
+	} else {
+		logger.Level = newLevel
+	}
 }
 
 // Print prints a log message without levels and colors.
