@@ -11,6 +11,8 @@ import (
 
 	"github.com/g2a-com/klio/pkg/log"
 	"github.com/g2a-com/klio/pkg/tarball"
+
+	"github.com/otiai10/copy"
 )
 
 type artifactoryFolder struct {
@@ -90,7 +92,14 @@ func (reg *Registry) DownloadCommand(cmdName string, cmdVersion *CommandVersion,
 
 	outputDir := filepath.Join(outputPath, cmdName)
 	os.RemoveAll(outputDir)
-	os.Rename(tmpDir, outputDir)
+
+	err = os.Rename(tmpDir, outputDir)
+	if err != nil {
+		err := copy.Copy(tmpDir, outputDir)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
