@@ -1,7 +1,11 @@
 package root
 
 import (
+	"fmt"
+	"github.com/Masterminds/semver"
 	"os"
+	"runtime"
+	"github.com/g2a-com/klio/pkg/registry"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -9,6 +13,8 @@ import (
 	"github.com/g2a-com/klio/pkg/discover"
 	"github.com/g2a-com/klio/pkg/log"
 )
+
+const VERSION = "2.2.0"
 
 // NewCommand returns root command for a G2A CLI
 func NewCommand() *cobra.Command {
@@ -20,7 +26,7 @@ G2A services, with an emphasis on automation. It unifies and generalises all
 work you need to do in order to run, build and deploy G2A services. G2A CLI is
 intended to be used the same way on developer’s local machine or on CI/CD
 servers like Jenkins, Bamboo or TeamCity.`,
-		Version: "2.1.0",
+		Version: VERSION,
 	}
 
 	// Setup flags
@@ -53,4 +59,26 @@ servers like Jenkins, Bamboo or TeamCity.`,
 	}
 
 	return cmd
+}
+
+func CheckForNewRootVersion(version chan<- string) {
+	commandRegistry, err := registry.New(registry.DefaultRegistry)
+	if err != nil {
+		log.Spamf("failed to parse registry URL: %s", err)
+		return
+	}
+	versions, err := commandRegistry.ListRootVersions()
+	if err != nil {
+		log.Spamf("unable to get g2a cli versions: %s", err)
+		return
+	}
+	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", VERSION))
+	if err != nil {
+		log.Spamf("unable to check for new g2a cli version: %s", err)
+		return
+	}
+	cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
+	if ok {
+		version <- strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
+	}
 }

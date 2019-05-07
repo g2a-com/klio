@@ -2,11 +2,13 @@ package registry
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/g2a-com/klio/pkg/log"
@@ -141,6 +143,49 @@ func (reg *Registry) ListCommandVersions(cmdName string) (*CommandVersionSet, er
 		version, err := NewCommandVersion(versionString)
 		if err != nil {
 			log.Debugf("found command version file with invalid name: '%s/%s'", cmdName, versionFile)
+			continue
+		}
+
+		versions = append(versions, *version)
+	}
+
+	return &versions, nil
+}
+
+// ListCommandVersions returns list of available versions of specified command
+func (reg *Registry) ListRootVersions() (*CommandVersionSet, error) {
+	// Make request to the registry
+	response, err := http.Get(reg.RegistryURL + "/")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	buffer, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	var data artifactoryFolder
+	err = json.Unmarshal(buffer, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepare list of versions
+	var versions CommandVersionSet
+	for _, child := range data.Children {
+		if child.IsFolder {
+			continue
+		}
+
+		versionFile := child.URI[1:]
+
+		if !strings.HasSuffix(versionFile, fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH)) {
+			continue
+		}
+
+		version, err := NewCommandVersion(versionFile)
+		if err != nil {
+			log.Debugf("found command version file with invalid name: '%s'", versionFile)
 			continue
 		}
 
