@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const defaultRegistry = "https://artifactory.code.g2a.com/artifactory/api/storage/g2a-cli-local"
-
 // Options for a get command
 type options struct {
 	Global   bool
@@ -37,7 +35,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&opts.Global, "global", "g", false, "install command globally")
-	cmd.Flags().StringVar(&opts.Registry, "registry", defaultRegistry, "change address to the registry")
+	cmd.Flags().StringVar(&opts.Registry, "registry", registry.DefaultRegistry, "change address to the registry")
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "prevent saving to dependencies")
 
 	return cmd
@@ -92,7 +90,7 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	registry, err := registry.New(opts.Registry)
+	commandRegistry, err := registry.New(opts.Registry)
 	if err != nil {
 		log.Errorf("failed to parse registry URL: %s", err)
 		os.Exit(1)
@@ -110,7 +108,7 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 			continue
 		}
 
-		versions, err := registry.ListCommandVersions(cmdName)
+		versions, err := commandRegistry.ListCommandVersions(cmdName)
 		if err != nil {
 			log.Error(err)
 			exitCode = 1
@@ -126,7 +124,7 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 		}
 		log.Spamf("found matching version for %s@%s: %s", cmdName, versionRange, versions)
 
-		err = registry.DownloadCommand(cmdName, cmdVersion, dir)
+		err = commandRegistry.DownloadCommand(cmdName, cmdVersion, dir)
 		if err != nil {
 			log.Errorf("failed to download %s@%s: %s", cmdName, cmdVersion.Version, err)
 			exitCode = 1
@@ -142,7 +140,10 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 		for c, v := range installedCommands {
 			projectConfig.CLI.Commands[c] = v
 		}
-		config.SaveProjectConfig(projectConfig)
+		err := config.SaveProjectConfig(projectConfig)
+		if err != nil {
+			log.Errorf("unable to update commands list in the g2a.yaml file")
+		}
 		log.Infof("updated commands list in the g2a.yaml file")
 	}
 

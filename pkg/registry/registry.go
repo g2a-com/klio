@@ -15,6 +15,8 @@ import (
 	"github.com/otiai10/copy"
 )
 
+var DefaultRegistry string
+
 type artifactoryFolder struct {
 	Children []artifactoryChild `json:"children"`
 }

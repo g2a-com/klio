@@ -20,7 +20,7 @@ G2A services, with an emphasis on automation. It unifies and generalises all
 work you need to do in order to run, build and deploy G2A services. G2A CLI is
 intended to be used the same way on developer’s local machine or on CI/CD
 servers like Jenkins, Bamboo or TeamCity.`,
-		Version: "2.0.2",
+		Version: "2.1.0",
 	}
 
 	// Setup flags
@@ -44,12 +44,12 @@ servers like Jenkins, Bamboo or TeamCity.`,
 
 	// Register local commands (installed under project directory)
 	for _, path := range discover.LocalCommandPaths() {
-		loadExternalCommand(cmd, path)
+		loadExternalCommand(cmd, path, false)
 	}
 
 	// Register global commands (installed under user's home directory)
 	for _, path := range discover.UserCommandPaths() {
-		loadExternalCommand(cmd, path)
+		loadExternalCommand(cmd, path, true)
 	}
 
 	return cmd
