@@ -185,7 +185,7 @@ func (reg *Registry) ListRootVersions() (*CommandVersionSet, error) {
 
 		version, err := NewCommandVersion(versionFile)
 		if err != nil {
-			log.Debugf("found command version file with invalid name: '%s'", versionFile)
+			log.Debugf("found g2a cli version file with invalid name: '%s'", versionFile)
 			continue
 		}
 
