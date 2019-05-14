@@ -134,7 +134,7 @@ func (reg *Registry) ListCommandVersions(cmdName string) (*CommandVersionSet, er
 		}
 
 		versionFile := child.URI[1:]
-		if !strings.HasSuffix(versionFile, ".tar.gz") {
+		if !strings.HasSuffix(versionFile, fmt.Sprintf("-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)) {
 			log.Debugf("found command version file with invalid extension: %s/%s", cmdName, versionFile)
 			continue
 		}
