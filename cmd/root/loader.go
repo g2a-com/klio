@@ -39,7 +39,12 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			externalCmdPath := filepath.Join(cmdDir, cmdConfig.BinPath)
-			externalCmd := exec.Command(externalCmdPath, args...)
+			var externalCmd *exec.Cmd
+			if runtime.GOOS == "windows" {
+				args = append([]string{"/c", externalCmdPath}, args...)
+				externalCmdPath = "cmd"
+			}
+			externalCmd = exec.Command(externalCmdPath, args...)
 			externalCmd.Stdin = os.Stdin
 			externalCmd.Stdout = os.Stdout
 			externalCmd.Stderr = os.Stderr
