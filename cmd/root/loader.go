@@ -2,14 +2,15 @@ package root
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
-	"github.com/g2a-com/klio/pkg/registry"
 	"strings"
 	"time"
+
+	"github.com/Masterminds/semver"
+	"github.com/g2a-com/klio/pkg/registry"
 
 	"github.com/spf13/cobra"
 	"stash.code.g2a.com/cli/common/pkg/config"
@@ -17,9 +18,9 @@ import (
 )
 
 func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, global bool) {
-	cmdDir := path.Dir(commandConfigPath)
+	cmdDir := filepath.Dir(commandConfigPath)
 
-	cmdName := path.Base(path.Dir(commandConfigPath))
+	cmdName := filepath.Base(filepath.Dir(commandConfigPath))
 	if cmd, _, _ := rootCmd.Find([]string{cmdName}); cmd != rootCmd {
 		log.Debugf("cannot register already registered command '%s' provided by '%s'", cmdName, cmdDir)
 		return
@@ -37,7 +38,7 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 		Long:               "",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			externalCmdPath := path.Join(cmdDir, cmdConfig.BinPath)
+			externalCmdPath := filepath.Join(cmdDir, cmdConfig.BinPath)
 			externalCmd := exec.Command(externalCmdPath, args...)
 			externalCmd.Stdin = os.Stdin
 			externalCmd.Stdout = os.Stdout
