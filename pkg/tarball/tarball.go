@@ -59,6 +59,10 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return err
 			}
+
+			// Despite previous defer, close this file anyway,
+			// it will prevent hitting limit of open files.
+			outFile.Close()
 		default:
 			return fmt.Errorf(
 				"tarball contains unknown type: %v in %s",
