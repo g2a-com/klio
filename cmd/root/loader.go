@@ -67,7 +67,9 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 					g = "-g "
 				}
 				cmdGet := fmt.Sprintf("g2a get %s%s@%s", g, cmdName, v)
+				log.SetOutput(os.Stderr)
 				log.Warnf(`there is new version %v available for %s command - please update using: %s`, v, cmdName, cmdGet)
+				log.SetOutput(os.Stdout)
 			case <-timeout:
 				break
 			}

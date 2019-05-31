@@ -1,6 +1,8 @@
 package log
 
-import "github.com/kataras/golog"
+import (
+	"github.com/kataras/golog"
+)
 
 func newLogger() *golog.Logger {
 	logger := golog.New()

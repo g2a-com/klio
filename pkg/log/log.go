@@ -1,6 +1,7 @@
 package log
 
 import (
+	"io"
 	"os"
 
 	"github.com/kataras/golog"
@@ -21,6 +22,11 @@ func SetLevel(levelName string) {
 	}
 	logger.Level = DefaultLevel
 	return
+}
+
+// SetOutput
+func SetOutput(w io.Writer) {
+	logger.SetOutput(w)
 }
 
 // GetDefaultLevel returns default logging level name
