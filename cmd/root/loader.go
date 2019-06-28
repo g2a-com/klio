@@ -75,8 +75,12 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 			}
 
 			if err != nil {
-				log.Fatalf("%s", err)
-				os.Exit(1)
+				switch e := err.(type) {
+				case *exec.ExitError:
+					os.Exit(e.ExitCode())
+				default:
+					log.Fatal(err)
+				}
 			}
 		},
 		Version: cmdConfig.Version,
