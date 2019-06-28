@@ -2,11 +2,13 @@ package root
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver"
 	"os"
+	"path/filepath"
 	"runtime"
-	"github.com/g2a-com/klio/pkg/registry"
 	"strings"
+
+	"github.com/Masterminds/semver"
+	"github.com/g2a-com/klio/pkg/registry"
 
 	"github.com/spf13/cobra"
 	getCommand "github.com/g2a-com/klio/cmd/get"
@@ -62,23 +64,48 @@ servers like Jenkins, Bamboo or TeamCity.`,
 }
 
 func CheckForNewRootVersion(version chan<- string) {
-	commandRegistry, err := registry.New(registry.DefaultRegistry)
-	if err != nil {
-		log.Spamf("failed to parse registry URL: %s", err)
+	homeDir, ok := discover.UserHomeDir()
+	if !ok {
+		log.Spamf("failed to read version check result from cache: cannot determine user directory")
+		version <- ""
 		return
 	}
-	versions, err := commandRegistry.ListRootVersions()
-	if err != nil {
-		log.Spamf("unable to get g2a cli versions: %s", err)
-		return
+
+	result := loadVersionFromCache(filepath.Join(homeDir, ".g2a"), "root")
+
+	if result == "" {
+		commandRegistry, err := registry.New(registry.DefaultRegistry)
+		if err != nil {
+			log.Spamf("failed to parse registry URL: %s", err)
+			version <- ""
+			return
+		}
+		versions, err := commandRegistry.ListRootVersions()
+		if err != nil {
+			log.Spamf("unable to get g2a cli versions: %s", err)
+			version <- ""
+			return
+		}
+		versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", VERSION))
+		if err != nil {
+			log.Spamf("unable to check for new g2a cli version: %s", err)
+			version <- ""
+			return
+		}
+		cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
+		if !ok {
+			log.Spam("no new versions of g2a cli")
+			result = VERSION
+		} else {
+			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
+		}
+
+		saveVersionToCache(filepath.Join(homeDir, ".g2a"), "root", result)
 	}
-	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", VERSION))
-	if err != nil {
-		log.Spamf("unable to check for new g2a cli version: %s", err)
-		return
-	}
-	cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
-	if ok {
-		version <- strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
+
+	if result != VERSION {
+		version <- result
+	} else {
+		version <- ""
 	}
 }

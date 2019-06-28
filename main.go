@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"github.com/g2a-com/klio/pkg/log"
 	"time"
+
+	"github.com/g2a-com/klio/pkg/log"
 
 	cmd "github.com/g2a-com/klio/cmd/root"
 )
@@ -17,7 +18,7 @@ func main() {
 	version := make(chan string, 1)
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 		timeout <- true
 	}()
 	go cmd.CheckForNewRootVersion(version)
@@ -26,9 +27,11 @@ func main() {
 
 	select {
 	case v := <-version:
-		log.SetOutput(os.Stderr)
-		log.Warnf(`there is new g2a cli version %v available - please update using: %s`, v, installCmd)
-		log.SetOutput(os.Stdout)
+		if v != "" {
+			log.SetOutput(os.Stderr)
+			log.Warnf(`there is new g2a cli version %v available - please update using: %s`, v, installCmd)
+			log.SetOutput(os.Stdout)
+		}
 	case <-timeout:
 		break
 	}
