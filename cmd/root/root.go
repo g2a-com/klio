@@ -3,7 +3,6 @@ package root
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -64,14 +63,7 @@ servers like Jenkins, Bamboo or TeamCity.`,
 }
 
 func CheckForNewRootVersion(version chan<- string) {
-	homeDir, ok := discover.UserHomeDir()
-	if !ok {
-		log.Spamf("failed to read version check result from cache: cannot determine user directory")
-		version <- ""
-		return
-	}
-
-	result := loadVersionFromCache(filepath.Join(homeDir, ".g2a"), "root")
+	result := loadVersionFromCache("root")
 
 	if result == "" {
 		commandRegistry, err := registry.New(registry.DefaultRegistry)
@@ -100,7 +92,7 @@ func CheckForNewRootVersion(version chan<- string) {
 			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
 		}
 
-		saveVersionToCache(filepath.Join(homeDir, ".g2a"), "root", result)
+		saveVersionToCache("root", result)
 	}
 
 	if result != VERSION {

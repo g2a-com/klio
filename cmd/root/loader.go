@@ -91,8 +91,7 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 }
 
 func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, version chan<- string) {
-	g2aDir := filepath.Dir(filepath.Dir(cmdDir))
-	result := loadVersionFromCache(g2aDir, "command-"+cmdName)
+	result := loadVersionFromCache("command-" + cmdName)
 
 	if result == "" {
 		if cmdVersion == "" {
@@ -126,7 +125,7 @@ func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, versio
 			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
 		}
 
-		saveVersionToCache(g2aDir, "command-"+cmdName, result)
+		saveVersionToCache("command-"+cmdName, result)
 	}
 
 	if result != cmdVersion {

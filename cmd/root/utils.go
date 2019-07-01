@@ -6,11 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/g2a-com/klio/pkg/discover"
 	"github.com/g2a-com/klio/pkg/log"
 )
 
-func loadVersionFromCache(g2aDir string, label string) string {
-	cacheFilePath := filepath.Join(g2aDir, "cache", "cli-version-"+label)
+func loadVersionFromCache(label string) string {
+	homeDir, ok := discover.UserHomeDir()
+	if !ok {
+		log.Spamf("failed to read version check result from cache: cannot determine user directory")
+		return ""
+	}
+
+	cacheFilePath := filepath.Join(homeDir, ".g2a", "cache", "versions", label)
 	cacheFile, err := os.OpenFile(cacheFilePath, os.O_RDONLY, 0644)
 	defer cacheFile.Close()
 	if err != nil {
@@ -39,10 +46,16 @@ func loadVersionFromCache(g2aDir string, label string) string {
 	return strings.TrimSpace(string(cacheFileContent))
 }
 
-func saveVersionToCache(g2aDir string, label string, version string) {
-	os.MkdirAll(filepath.Join(g2aDir, "cache"), 0755)
+func saveVersionToCache(label string, version string) {
+	homeDir, ok := discover.UserHomeDir()
+	if !ok {
+		log.Verbosef("failed to save version check result to cache: cannot determine user directory")
+		return
+	}
 
-	cacheFilePath := filepath.Join(g2aDir, "cache", "cli-version-"+label)
+	os.MkdirAll(filepath.Join(homeDir, ".g2a", "cache", "versions"), 0755)
+
+	cacheFilePath := filepath.Join(homeDir, ".g2a", "cache", "versions", label)
 	cacheFile, err := os.OpenFile(cacheFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	defer cacheFile.Close()
 	if err != nil {
