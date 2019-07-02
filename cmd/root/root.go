@@ -15,7 +15,7 @@ import (
 	"github.com/g2a-com/klio/pkg/log"
 )
 
-const VERSION = "2.3.0"
+const VERSION = "2.3.1"
 
 // NewCommand returns root command for a G2A CLI
 func NewCommand() *cobra.Command {
