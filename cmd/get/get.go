@@ -6,13 +6,12 @@ import (
 	"runtime"
 	"strings"
 
-	"stash.code.g2a.com/cli/common/pkg/config"
+	"github.com/g2a-com/klio/pkg/config"
 	"github.com/g2a-com/klio/pkg/discover"
+	"github.com/g2a-com/klio/pkg/log"
 	"github.com/g2a-com/klio/pkg/registry"
 
 	"github.com/Masterminds/semver"
-	"github.com/g2a-com/klio/pkg/log"
-
 	"github.com/spf13/cobra"
 )
 

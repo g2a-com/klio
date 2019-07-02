@@ -10,5 +10,7 @@ require (
 	github.com/stretchr/testify v1.3.0 // indirect
 	golang.org/x/sys v0.0.0-20190507053917-2953c62de483 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
+	gopkg.in/go-playground/validator.v9 v9.26.0
+	gopkg.in/yaml.v3 v3.0.0-20190502103701-55513cacd4ae
 	stash.code.g2a.com/cli/common v0.0.0-20190429144406-994dea264ab5
 )

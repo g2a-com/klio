@@ -13,7 +13,7 @@ import (
 	"github.com/g2a-com/klio/pkg/registry"
 
 	"github.com/spf13/cobra"
-	"stash.code.g2a.com/cli/common/pkg/config"
+	"github.com/g2a-com/klio/pkg/config"
 	"github.com/g2a-com/klio/pkg/log"
 )
 
