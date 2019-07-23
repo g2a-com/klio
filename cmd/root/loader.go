@@ -93,12 +93,19 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, version chan<- string) {
 	result := loadVersionFromCache("command-" + cmdName)
 
+	if cmdVersion == "" {
+		log.Spamf("version for %s not specified, unable to check for new version", cmdName)
+		version <- ""
+		return
+	}
+	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", cmdVersion))
+	if err != nil {
+		log.Spamf("unable to check for new %s version: %s", cmdName, err)
+		version <- ""
+		return
+	}
+
 	if result == "" {
-		if cmdVersion == "" {
-			log.Spamf("version for %s not specified, unable to check for new version", cmdName)
-			version <- ""
-			return
-		}
 		commandRegistry, err := registry.New(registry.DefaultRegistry)
 		if err != nil {
 			log.Spamf("failed to parse registry URL: %s", err)
@@ -108,12 +115,6 @@ func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, versio
 		versions, err := commandRegistry.ListCommandVersions(cmdName)
 		if err != nil {
 			log.Spamf("unable to get %s command versions: %s", cmdName, err)
-			version <- ""
-			return
-		}
-		versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", cmdVersion))
-		if err != nil {
-			log.Spamf("unable to check for new %s version: %s", cmdName, err)
 			version <- ""
 			return
 		}
@@ -128,7 +129,7 @@ func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, versio
 		saveVersionToCache("command-"+cmdName, result)
 	}
 
-	if result != cmdVersion {
+	if ver, err := semver.NewVersion(result); err == nil && versionConstraint.Check(ver) {
 		version <- result
 	} else {
 		version <- ""

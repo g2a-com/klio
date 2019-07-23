@@ -65,6 +65,13 @@ servers like Jenkins, Bamboo or TeamCity.`,
 func CheckForNewRootVersion(version chan<- string) {
 	result := loadVersionFromCache("root")
 
+	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", VERSION))
+	if err != nil {
+		log.Spamf("unable to check for new g2a cli version: %s", err)
+		version <- ""
+		return
+	}
+
 	if result == "" {
 		commandRegistry, err := registry.New(registry.DefaultRegistry)
 		if err != nil {
@@ -75,12 +82,6 @@ func CheckForNewRootVersion(version chan<- string) {
 		versions, err := commandRegistry.ListRootVersions()
 		if err != nil {
 			log.Spamf("unable to get g2a cli versions: %s", err)
-			version <- ""
-			return
-		}
-		versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", VERSION))
-		if err != nil {
-			log.Spamf("unable to check for new g2a cli version: %s", err)
 			version <- ""
 			return
 		}
@@ -95,7 +96,7 @@ func CheckForNewRootVersion(version chan<- string) {
 		saveVersionToCache("root", result)
 	}
 
-	if result != VERSION {
+	if ver, err := semver.NewVersion(result); err == nil && versionConstraint.Check(ver) {
 		version <- result
 	} else {
 		version <- ""
