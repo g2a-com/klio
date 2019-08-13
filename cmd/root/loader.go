@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,6 +57,8 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 				timeout <- true
 			}()
 			go checkForNewVersion(filepath.Dir(cmdConfig.Meta.Path), cmdName, cmdConfig.Version, version)
+
+			_ = os.Setenv("G2A_CLI_GLOBAL_COMMAND", strconv.FormatBool(global))
 
 			log.Debugf(`running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
 			err := externalCmd.Run()
