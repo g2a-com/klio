@@ -15,8 +15,6 @@ import (
 	"github.com/g2a-com/klio/pkg/log"
 )
 
-const VERSION = "2.3.2"
-
 // NewCommand returns root command for a G2A CLI
 func NewCommand() *cobra.Command {
 	var cmd = &cobra.Command{
@@ -44,7 +42,13 @@ servers like Jenkins, Bamboo or TeamCity.`,
 	// set env variable as well.
 	log.SetLevel(*logLevel)
 	log.IncreaseLevel(*verbosity)
-	os.Setenv("G2A_CLI_LOG_LEVEL", log.GetLevel())
+
+	envLogLevel, ok := os.LookupEnv("G2A_CLI_LOG_LEVEL")
+	if ok {
+		log.SetLevel(envLogLevel)
+	} else {
+		_ = os.Setenv("G2A_CLI_LOG_LEVEL", log.GetLevel())
+	}
 
 	// Register builtin commands
 	cmd.AddCommand(getCommand.NewCommand())

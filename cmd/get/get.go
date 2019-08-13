@@ -30,7 +30,6 @@ func NewCommand() *cobra.Command {
 		Short:   "Install new commands",
 		Long:    "Get (g2a get) will install command to use with G2A CLI.",
 		Run:     opts.run,
-		Version: "test",
 	}
 
 	cmd.Flags().BoolVarP(&opts.Global, "global", "g", false, "install command globally")
