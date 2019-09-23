@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -60,7 +59,7 @@ func New(registryURL string) (*Registry, error) {
 
 // DownloadCommand downloads command from the registry and puts it in the
 // specified directory
-func (reg *Registry) DownloadCommand(cmdName string, cmdVersion *CommandVersion, outputPath string) error {
+func (reg *Registry) DownloadCommand(cmdName string, cmdVersion *CommandVersion, outputDir string) error {
 	// Make request to the registry
 	apiResponse, err := http.Get(reg.RegistryURL + "/" + url.PathEscape(cmdName) + "/" + cmdVersion.String() + ".tar.gz")
 	if err != nil {
@@ -94,7 +93,6 @@ func (reg *Registry) DownloadCommand(cmdName string, cmdVersion *CommandVersion,
 		return err
 	}
 
-	outputDir := filepath.Join(outputPath, cmdName)
 	os.RemoveAll(outputDir)
 
 	err = os.Rename(tmpDir, outputDir)
@@ -111,9 +109,13 @@ func (reg *Registry) DownloadCommand(cmdName string, cmdVersion *CommandVersion,
 // ListCommandVersions returns list of available versions of specified command
 func (reg *Registry) ListCommandVersions(cmdName string) (*CommandVersionSet, error) {
 	// Make request to the registry
-	response, err := http.Get(reg.RegistryURL + "/" + url.PathEscape(cmdName))
+	url := reg.RegistryURL + "/" + url.PathEscape(cmdName)
+	response, err := http.Get(url)
 	if err != nil {
 		return nil, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 400 {
+		return nil, fmt.Errorf("HTTP error %d when GET %s", response.StatusCode, url)
 	}
 	defer response.Body.Close()
 	buffer, err := ioutil.ReadAll(response.Body)

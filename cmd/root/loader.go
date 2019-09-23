@@ -11,18 +11,21 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
-	"github.com/g2a-com/klio/pkg/registry"
-
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/g2a-com/klio/pkg/cmdname"
 	"github.com/g2a-com/klio/pkg/config"
+	"github.com/g2a-com/klio/pkg/discover"
 	"github.com/g2a-com/klio/pkg/log"
+	"github.com/g2a-com/klio/pkg/registry"
 )
 
 func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, global bool) {
 	cmdDir := filepath.Dir(commandConfigPath)
 
-	cmdName := filepath.Base(filepath.Dir(commandConfigPath))
-	if cmd, _, _ := rootCmd.Find([]string{cmdName}); cmd != rootCmd {
+	cmdName := cmdname.New(filepath.Base(filepath.Dir(commandConfigPath)))
+	if cmd, _, _ := rootCmd.Find([]string{cmdName.Name}); cmd != rootCmd {
 		log.Debugf("cannot register already registered command '%s' provided by '%s'", cmdName, cmdDir)
 		return
 	}
@@ -34,7 +37,7 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 	}
 
 	cmd := &cobra.Command{
-		Use:                cmdName,
+		Use:                cmdName.Name,
 		Short:              cmdConfig.Description,
 		Long:               "",
 		DisableFlagParsing: true,
@@ -93,43 +96,44 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 	rootCmd.AddCommand(cmd)
 }
 
-func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, version chan<- string) {
-	result := loadVersionFromCache("command-" + cmdName)
+func checkForNewVersion(cmdDir string, cmdName cmdname.CmdName, cmdVersion string, version chan<- string) {
+	result := loadVersionFromCache("command-" + cmdName.DirName())
 
 	if cmdVersion == "" {
-		log.Spamf("version for %s not specified, unable to check for new version", cmdName)
+		log.Spamf("version for %s not specified, unable to check for new version", cmdName.String())
 		version <- ""
 		return
 	}
 	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", cmdVersion))
 	if err != nil {
-		log.Spamf("unable to check for new %s version: %s", cmdName, err)
+		log.Spamf("unable to check for new %s version: %s", cmdName.String(), err)
 		version <- ""
 		return
 	}
 
 	if result == "" {
-		commandRegistry, err := registry.New(registry.DefaultRegistry)
+		commandRegistry, err := loadRegistry(cmdName)
 		if err != nil {
-			log.Spamf("failed to parse registry URL: %s", err)
+			log.Spam(err.Error())
 			version <- ""
 			return
 		}
-		versions, err := commandRegistry.ListCommandVersions(cmdName)
+
+		versions, err := commandRegistry.ListCommandVersions(cmdName.Name)
 		if err != nil {
-			log.Spamf("unable to get %s command versions: %s", cmdName, err)
+			log.Spamf("unable to get %s command versions: %s", cmdName.String(), err)
 			version <- ""
 			return
 		}
 		cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
 		if !ok {
-			log.Spamf("no new versions of '%s' command", cmdName)
+			log.Spamf("no new versions of '%s' command", cmdName.String())
 			result = cmdVersion
 		} else {
 			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
 		}
 
-		saveVersionToCache("command-"+cmdName, result)
+		saveVersionToCache("command-"+cmdName.DirName(), result)
 	}
 
 	if ver, err := semver.NewVersion(result); err == nil && versionConstraint.Check(ver) {
@@ -137,4 +141,30 @@ func checkForNewVersion(cmdDir string, cmdName string, cmdVersion string, versio
 	} else {
 		version <- ""
 	}
+}
+
+func loadRegistry(cmdName cmdname.CmdName) (*registry.Registry, error) {
+	if cmdName.Registry == "default" {
+		var err error
+		reg, err := registry.New(registry.DefaultRegistry)
+		return reg, err
+	}
+
+	baseDir, ok := discover.ProjectRootDir()
+	if !ok {
+		return nil, errors.New("not in project directory - aborting version check")
+	}
+	projectConfig, err := config.LoadProjectConfig(filepath.Join(baseDir, "g2a.yaml"))
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading project config")
+	}
+	regMap, err := registry.NewRegistriesMap(projectConfig.CLI.Registries)
+	if err != nil {
+		return nil, err
+	}
+	reg, ok := regMap[cmdName.Registry]
+	if !ok {
+		return nil, fmt.Errorf("command registry not found for %s", cmdName.String())
+	}
+	return reg, nil
 }
