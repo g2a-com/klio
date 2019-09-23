@@ -100,13 +100,13 @@ func checkForNewVersion(cmdDir string, cmdName cmdname.CmdName, cmdVersion strin
 	result := loadVersionFromCache("command-" + cmdName.DirName())
 
 	if cmdVersion == "" {
-		log.Spamf("version for %s not specified, unable to check for new version", cmdName.String())
+		log.Spamf("version for %s not specified, unable to check for new version", cmdName)
 		version <- ""
 		return
 	}
 	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", cmdVersion))
 	if err != nil {
-		log.Spamf("unable to check for new %s version: %s", cmdName.String(), err)
+		log.Spamf("unable to check for new %s version: %s", cmdName, err)
 		version <- ""
 		return
 	}
@@ -121,13 +121,13 @@ func checkForNewVersion(cmdDir string, cmdName cmdname.CmdName, cmdVersion strin
 
 		versions, err := commandRegistry.ListCommandVersions(cmdName.Name)
 		if err != nil {
-			log.Spamf("unable to get %s command versions: %s", cmdName.String(), err)
+			log.Spamf("unable to get %s command versions: %s", cmdName, err)
 			version <- ""
 			return
 		}
 		cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
 		if !ok {
-			log.Spamf("no new versions of '%s' command", cmdName.String())
+			log.Spamf("no new versions of '%s' command", cmdName)
 			result = cmdVersion
 		} else {
 			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
@@ -164,7 +164,7 @@ func loadRegistry(cmdName cmdname.CmdName) (*registry.Registry, error) {
 	}
 	reg, ok := regMap[cmdName.Registry]
 	if !ok {
-		return nil, fmt.Errorf("command registry not found for %s", cmdName.String())
+		return nil, fmt.Errorf("command registry not found for %s", cmdName)
 	}
 	return reg, nil
 }

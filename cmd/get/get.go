@@ -110,14 +110,14 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 		cmdName := cmdname.New(cmdPath)
 		versionConstraint, err := semver.NewConstraint(versionRange)
 		if err != nil {
-			log.Errorf("invalid version range %s@%s", cmdName.String(), versionRange)
+			log.Errorf("invalid version range %s@%s", cmdName, versionRange)
 			exitCode = 1
 			continue
 		}
 
 		registry, ok := commandRegistries[cmdName.Registry]
 		if !ok {
-			log.Errorf("No registry found for command %s", cmdName.String())
+			log.Errorf("No registry found for command %s", cmdName)
 			exitCode = 1
 			continue
 		}
@@ -128,24 +128,24 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 			exitCode = 1
 			continue
 		}
-		log.Spamf("found following versions for %s@%s: %s", cmdName.String(), versionRange, versions.String())
+		log.Spamf("found following versions for %s@%s: %s", cmdName, versionRange, versions)
 
 		cmdVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
 		if !ok {
-			log.Errorf("no matching version found for %s@%s", cmdName.String(), versionRange)
+			log.Errorf("no matching version found for %s@%s", cmdName, versionRange)
 			exitCode = 1
 			continue
 		}
-		log.Spamf("found matching version for %s@%s: %s", cmdName.String(), versionRange, versions)
+		log.Spamf("found matching version for %s@%s: %s", cmdName, versionRange, versions)
 
 		outputDir := filepath.Join(dir, cmdName.DirName())
 		err = registry.DownloadCommand(cmdName.Name, cmdVersion, outputDir)
 		if err != nil {
-			log.Errorf("failed to download %s@%s: %s", cmdName.String(), cmdVersion.Version, err)
+			log.Errorf("failed to download %s@%s: %s", cmdName, cmdVersion.Version, err)
 			exitCode = 1
 			continue
 		} else {
-			log.Infof("downloaded %s@%s", cmdName.String(), cmdVersion.Version)
+			log.Infof("downloaded %s@%s", cmdName, cmdVersion.Version)
 		}
 
 		installedCommands[cmdName.String()] = cmdVersion.Version.String()
