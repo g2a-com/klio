@@ -1,7 +1,5 @@
 package config
 
-import "gopkg.in/yaml.v3"
-
 // CommandConfigKind defines kind property value of for g2a.yaml files
 const CommandConfigKind string = "Command"
 
@@ -31,12 +29,13 @@ type ProjectConfig struct {
 	Meta Metadata `yaml:"-"`
 	// FIXME: Find more clever way to handle this "extra" properties, we should
 	// keep all properties not specified in this struct.
-	APIVersion   string    `yaml:"apiVersion,omitempty"`
-	Kind         string    `yaml:"kind,omitempty"`
-	Name         string    `yaml:"name,omitempty"`
-	Services     []string  `yaml:"services,omitempty"`
-	Environments []string  `yaml:"environments,omitempty"`
-	Scripts      yaml.Node `yaml:"scripts,omitempty"`
+	APIVersion   string      `yaml:"apiVersion,omitempty"`
+	Kind         string      `yaml:"kind,omitempty"`
+	Name         string      `yaml:"name,omitempty"`
+	Services     []string    `yaml:"services,omitempty"`
+	Environments []string    `yaml:"environments,omitempty"`
+	Scripts      interface{} `yaml:"scripts,omitempty"`
+	Docs         interface{} `yaml:"docs,omitempty"`
 
 	CLI CLIConfig `yaml:"cli,omitempty"`
 }
