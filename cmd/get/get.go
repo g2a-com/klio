@@ -58,7 +58,7 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 			log.Error(err)
 			os.Exit(1)
 		}
-		commandRegistries["default"] = reg
+		commandRegistries[registry.DefaultRegistryPrefix] = reg
 	} else {
 		baseDir, ok = discover.ProjectRootDir()
 		if !ok {

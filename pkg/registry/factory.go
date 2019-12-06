@@ -13,7 +13,7 @@ func NewRegistriesMap(config *config.CmdRegistries) (map[string]*Registry, error
 		if err != nil {
 			return rm, errors.Wrap(err, "failed to create registry object")
 		}
-		rm["default"] = defaultRegistry
+		rm[DefaultRegistryPrefix] = defaultRegistry
 	}
 
 	for regName, registry := range *config {

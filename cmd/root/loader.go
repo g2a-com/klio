@@ -144,7 +144,7 @@ func checkForNewVersion(cmdDir string, cmdName cmdname.CmdName, cmdVersion strin
 }
 
 func loadRegistry(cmdName cmdname.CmdName) (*registry.Registry, error) {
-	if cmdName.Registry == "default" {
+	if cmdName.Registry == registry.DefaultRegistryPrefix {
 		var err error
 		reg, err := registry.New(registry.DefaultRegistry)
 		return reg, err

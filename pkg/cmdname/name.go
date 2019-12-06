@@ -1,6 +1,7 @@
 package cmdname
 
 import (
+	"github.com/g2a-com/klio/pkg/registry"
 	"strings"
 )
 
@@ -28,7 +29,7 @@ func New(path string) CmdName {
 	tokens := strings.SplitN(path, "/", 2)
 	if len(tokens) < 2 {
 		return CmdName{
-			Registry: "default",
+			Registry: registry.DefaultRegistryPrefix,
 			Name:     tokens[0],
 			original: path,
 		}
