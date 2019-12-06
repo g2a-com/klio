@@ -6,7 +6,7 @@ import (
 	"github.com/g2a-com/klio/pkg/config"
 )
 
-func NewRegistriesMap(config config.CmdRegistriesConfig) (map[string]*Registry, error) {
+func NewRegistriesMap(config *config.CmdRegistries) (map[string]*Registry, error) {
 	rm := make(map[string]*Registry)
 	{
 		defaultRegistry, err := New(DefaultRegistry)
@@ -15,9 +15,10 @@ func NewRegistriesMap(config config.CmdRegistriesConfig) (map[string]*Registry, 
 		}
 		rm["default"] = defaultRegistry
 	}
-	if config.Artifactory != nil {
-		for regName, regURL := range config.Artifactory {
-			reg, err := New(regURL)
+
+	for regName, registry := range *config {
+		if registry.RegistryType.Artifactory != nil {
+			reg, err := New(*registry.Artifactory)
 			if err != nil {
 				return rm, errors.Wrap(err, "failed to create registry object")
 			}

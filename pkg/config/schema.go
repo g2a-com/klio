@@ -49,10 +49,16 @@ type Metadata struct {
 // CLIConfig contains configuration for CLI itself
 type CLIConfig struct {
 	Commands   map[string]string   `yaml:"commands,omitempty"`
-	Registries CmdRegistriesConfig `yaml:"registries,omitempty"`
+	Registries *CmdRegistries `yaml:"registries,omitempty"`
+}
+
+type CmdRegistries map[string]CmdRegistry
+
+type CmdRegistry struct {
+	RegistryType `yaml:",inline"`
 }
 
 // CmdRegistriesConfig contains configuration for additional commands registries
-type CmdRegistriesConfig struct {
-	Artifactory map[string]string `yaml:"artifactory,omitempty"`
+type RegistryType struct {
+	Artifactory *string `yaml:"artifactory,omitempty"`
 }

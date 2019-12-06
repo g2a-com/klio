@@ -17,6 +17,7 @@ import (
 )
 
 var DefaultRegistry string
+const DefaultRegistryPrefix = "g2a"
 
 type artifactoryFolder struct {
 	Children []artifactoryChild `json:"children"`
