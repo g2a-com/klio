@@ -3,12 +3,11 @@ package registry
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/Masterminds/semver"
 )
 
-const versionRegexp = `^v\d+\.\d+\.\d+(-\w+){0,2}$`
+const versionRegexp = `^v(?P<Version>\d+\.\d+\.\d(-\w.+)?(\+\w.+)?)-(?P<OS>\w+)-(?P<Arch>\w+)$`
 
 // CommandVersion stores information about command version
 type CommandVersion struct {
@@ -24,26 +23,20 @@ func (version *CommandVersion) String() string {
 // NewCommandVersion parses a given version string and returns an instance of
 // CommandVersion or an error if unable to parse the version.
 func NewCommandVersion(versionString string) (*CommandVersion, error) {
-	ok, _ := regexp.MatchString(versionRegexp, versionString)
-	if !ok {
+	groups := matchAgainstGroups(versionRegexp, versionString)
+	if len(groups) == 0 {
 		return nil, fmt.Errorf("invalid version string: %s", versionString)
 	}
 
-	versionParts := strings.Split(versionString, "-")
-
-	ver, err := semver.NewVersion(versionParts[0])
+	ver, err := semver.NewVersion(groups["Version"])
 	if err != nil {
 		return nil, fmt.Errorf("invalid version string: %s", versionString)
 	}
 
 	version := &CommandVersion{
 		Version: ver,
-	}
-	if len(versionParts) >= 2 {
-		version.OS = versionParts[1]
-	}
-	if len(versionParts) >= 3 {
-		version.Arch = versionParts[2]
+		Arch:    groups["Arch"],
+		OS:      groups["OS"],
 	}
 
 	return version, nil
@@ -95,4 +88,18 @@ func (versionSet *CommandVersionSet) String() string {
 		result += version.String()
 	}
 	return result
+}
+
+func matchAgainstGroups(regularExpression string, url string) map[string]string {
+	var compRegEx = regexp.MustCompile(regularExpression)
+	match := compRegEx.FindStringSubmatch(url)
+
+	paramsMap := make(map[string]string)
+	for i, name := range compRegEx.SubexpNames() {
+		if i > 0 && i <= len(match) {
+			paramsMap[name] = match[i]
+		}
+	}
+
+	return paramsMap
 }
