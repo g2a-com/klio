@@ -1,3 +1,3 @@
 package root
 
-const VERSION = "2.3.7"
+const VERSION = "2.3.8"
