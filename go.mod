@@ -8,8 +8,7 @@ require (
 	github.com/go-playground/locales v0.12.1 // indirect
 	github.com/go-playground/universal-translator v0.16.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/kataras/golog v0.0.0-20180321173939-03be10146386
-	github.com/kataras/pio v0.0.0-20190103105442-ea782b38602d // indirect
+	github.com/kataras/pio v0.0.8
 	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/otiai10/copy v1.0.1
 	github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95 // indirect

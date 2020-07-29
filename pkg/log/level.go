@@ -1,7 +1,7 @@
 package log
 
 import (
-	"github.com/kataras/golog"
+	"github.com/kataras/pio"
 )
 
 // Level is a number which defines the log level
@@ -45,49 +45,63 @@ const MaxLevel = SpamLevel
 // LevelNames contains all supported names of logging levels
 var LevelNames = []string{"disable", "fatal", "error", "warn", "info", "verbose", "debug", "spam"}
 
-var levels = map[golog.Level]*golog.LevelMetadata{
-	golog.Level(DisableLevel): {
-		Name:         "disable",
-		RawText:      "",
-		ColorfulText: "",
+// LevelsByName maps level names to golog.Level type
+var LevelsByName = map[string]Level{
+	"disable": DisableLevel,
+	"fatal": FatalLevel,
+	"error": ErrorLevel,
+	"warn": WarnLevel,
+	"info": InfoLevel,
+	"verbose": VerboseLevel,
+	"debug": DebugLevel,
+	"spam": SpamLevel,
+}
+
+type LevelConfig struct {
+	Name string
+	DisplayText string
+	Color int
+}
+
+var levels = map[Level]LevelConfig{
+	DisableLevel: {
+		Name: "disable",
+		DisplayText: "",
 	},
-	golog.Level(FatalLevel): {
-		Name:         "fatal",
-		RawText:      "[FATA]",
-		ColorfulText: "\x1b[31m[FATA]\x1b[0m",
+	FatalLevel: {
+		Name: "fatal",
+		DisplayText: "FATA",
+		Color: pio.Red,
 	},
-	golog.Level(ErrorLevel): {
-		Name:         "error",
-		RawText:      "[ERRO]",
-		ColorfulText: "\x1b[31m[ERRO]\x1b[0m",
+	ErrorLevel: {
+		Name: "error",
+		DisplayText: "ERRO",
+		Color: pio.Red,
 	},
-	golog.Level(WarnLevel): {
-		Name:         "warn",
-		RawText:      "[WARN]",
-		ColorfulText: "\x1b[33m[WARN]\x1b[0m",
+	WarnLevel: {
+		Name: "error",
+		DisplayText: "WARN",
+		Color: pio.Yellow,
 	},
-	golog.Level(InfoLevel): {
-		Name:         "info",
-		RawText:      "[INFO]",
-		ColorfulText: "\x1b[36m[INFO]\x1b[0m",
+	InfoLevel: {
+		Name: "info",
+		DisplayText: "INFO",
+		Color: pio.Cyan,
 	},
-	golog.Level(VerboseLevel): {
-		Name:         "verbose",
-		RawText:      "[VERB]",
-		ColorfulText: "\x1b[90m[VERB]\x1b[0m",
+	VerboseLevel: {
+		Name: "verbose",
+		DisplayText: "VERB",
+		Color: pio.Gray,
 	},
-	golog.Level(DebugLevel): {
-		Name:         "debug",
-		RawText:      "[DEBU]",
-		ColorfulText: "\x1b[90m[DEBU]\x1b[0m",
+	DebugLevel: {
+		Name: "debug",
+		DisplayText: "DEBU",
+		Color: pio.Gray,
 	},
-	golog.Level(SpamLevel): {
-		Name:         "spam",
-		RawText:      "[SPAM]",
-		ColorfulText: "\x1b[90m[SPAM]\x1b[0m",
+	SpamLevel: {
+		Name: "spam",
+		DisplayText: "SPAM",
+		Color: pio.Gray,
 	},
 }
 
-func init() {
-	golog.Levels = levels
-}

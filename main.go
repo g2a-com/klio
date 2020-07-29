@@ -28,9 +28,10 @@ func main() {
 	select {
 	case v := <-version:
 		if v != "" {
-			log.SetOutput(os.Stderr)
-			log.Warnf(`there is new g2a cli version %v available - please update using: %s`, v, installCmd)
-			log.SetOutput(os.Stdout)
+			log.ErrorLogger.Print(&log.Message{
+				Level: log.WarnLevel,
+				Text: fmt.Sprintf(`there is new g2a cli version %v available - please update using: %s`, v, installCmd),
+			})
 		}
 	case <-timeout:
 		break

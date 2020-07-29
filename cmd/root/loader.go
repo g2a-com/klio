@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Masterminds/semver"
@@ -50,8 +51,42 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 			}
 			externalCmd = exec.Command(externalCmdPath, args...)
 			externalCmd.Stdin = os.Stdin
-			externalCmd.Stdout = os.Stdout
-			externalCmd.Stderr = os.Stderr
+
+			var wg sync.WaitGroup
+
+			if cmdConfig.APIVersion == "g2a-cli/v1beta1" {
+				externalCmd.Stdout = os.Stdout
+				externalCmd.Stderr = os.Stderr
+			} else {
+				stdoutPipe, err := externalCmd.StdoutPipe()
+				if err != nil {
+					log.Fatal(err)
+				}
+				stderrPipe, err := externalCmd.StderrPipe()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				wg.Add(1)
+				stdoutLogProcessor := log.NewLogProcessor()
+				stdoutLogProcessor.DefaultLevel = log.InfoLevel
+				stdoutLogProcessor.Input = stdoutPipe
+				stdoutLogProcessor.Logger = log.DefaultLogger
+				go func () {
+					stdoutLogProcessor.Process()
+					wg.Done()
+				}()
+
+				wg.Add(1)
+				stderrLogProcessor := log.NewLogProcessor()
+				stderrLogProcessor.DefaultLevel = log.ErrorLevel
+				stderrLogProcessor.Input = stderrPipe
+				stderrLogProcessor.Logger = log.ErrorLogger
+				go func () {
+					stderrLogProcessor.Process()
+					wg.Done()
+				}()
+			}
 
 			version := make(chan string, 1)
 			timeout := make(chan bool, 1)
@@ -64,7 +99,14 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 			_ = os.Setenv("G2A_CLI_GLOBAL_COMMAND", strconv.FormatBool(global))
 
 			log.Debugf(`running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
-			err := externalCmd.Run()
+
+			if err := externalCmd.Start(); err != nil {
+				log.Fatal(err)
+			}
+
+			wg.Wait()
+
+			err = externalCmd.Wait()
 
 			select {
 			case v := <-version:
@@ -74,9 +116,10 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 						g = "-g "
 					}
 					cmdGet := fmt.Sprintf("g2a get %s%s@%s", g, cmdName, v)
-					log.SetOutput(os.Stderr)
-					log.Warnf(`there is new version %v available for %s command - please update using: %s`, v, cmdName, cmdGet)
-					log.SetOutput(os.Stdout)
+					log.ErrorLogger.Print(&log.Message{
+						Level: log.WarnLevel,
+						Text: fmt.Sprintf(`there is new version %v available for %s command - please update using: %s`, v, cmdName, cmdGet),
+					})
 				}
 			case <-timeout:
 				break
