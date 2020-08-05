@@ -8,8 +8,14 @@ import (
 	"encoding/json"
 )
 
+type Mode string
+
+const LineMode = "line"
+const RawMode = "raw"
+
 type LogProcessor struct {
 	DefaultLevel Level
+	DefaultMode Mode
 	Input io.Reader
 	Logger *Logger
 }
@@ -17,6 +23,7 @@ type LogProcessor struct {
 func NewLogProcessor() *LogProcessor {
 	return &LogProcessor{
 		DefaultLevel: InfoLevel,
+		DefaultMode: LineMode,
 	}
 }
 
@@ -27,6 +34,7 @@ func (lp *LogProcessor) Process() {
 	level := lp.DefaultLevel
 	tags := []string{}
 	line := ""
+	mode := lp.DefaultMode
 
 	flush := func () {
 		if line != "" {
@@ -42,11 +50,21 @@ func (lp *LogProcessor) Process() {
 	for scanner.Scan() {
 		chunk := scanner.Text()
 
+		if mode == RawMode && !isEscCode(chunk) {
+			lp.Logger.Output.Write([]byte(chunk))
+			continue
+		}
+
 		switch {
 			case isEscCode(chunk):
 				cmd, args, err := parseEscCode(chunk)
 				if err != nil {
 					Spamf("Failed to parse esc sequence while processing logs: %s", err)
+					continue
+				}
+
+				// When in raw mode, ignore all commands except mode change
+				if mode == RawMode && cmd != "klio_mode" {
 					continue
 				}
 
@@ -72,6 +90,16 @@ func (lp *LogProcessor) Process() {
 						flush()
 						level = lp.DefaultLevel
 						tags = []string{}
+					}
+				case "klio_mode":
+					newMode := Mode(args[0])
+					if newMode == LineMode || newMode == RawMode {
+						if newMode != mode {
+							flush()
+						}
+						mode = newMode
+					} else {
+						Spamf("Failed to parse esc sequence while processing logs: invalid log mode: %s", args[0])
 					}
 				}
 			case chunk == "\n":
@@ -163,6 +191,17 @@ func parseEscCode (code string) (cmd string, args []string, err error) {
 		}
 
 		return cmd, args, nil
+	case "klio_mode":
+		if len(parts) < 2 {
+			return cmd, args, fmt.Errorf("%s requires an argument", cmd)
+		}
+
+		var arg string
+		if err := json.Unmarshal([]byte(parts[1]), &arg); err != nil {
+			return cmd, args, err
+		}
+
+		return cmd, []string{ arg }, nil
 	}
 
 	return cmd, args, fmt.Errorf("%s is not supported", cmd)
