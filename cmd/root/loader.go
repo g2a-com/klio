@@ -1,6 +1,8 @@
 package root
 
 import (
+	"time"
+
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,41 +11,32 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/Masterminds/semver"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-
-	"github.com/g2a-com/klio/pkg/cmdname"
-	"github.com/g2a-com/klio/pkg/config"
-	"github.com/g2a-com/klio/pkg/discover"
+	"github.com/g2a-com/klio/pkg/dependency"
 	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/registry"
+	"github.com/g2a-com/klio/pkg/schema"
 )
 
-func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, global bool) {
-	cmdDir := filepath.Dir(commandConfigPath)
-
-	cmdName := cmdname.New(filepath.Base(filepath.Dir(commandConfigPath)))
-	if cmd, _, _ := rootCmd.Find([]string{cmdName.Name}); cmd != rootCmd {
-		log.Debugf("cannot register already registered command '%s' provided by '%s'", cmdName, cmdDir)
+func loadExternalCommand(rootCmd *cobra.Command, dep schema.DependenciesIndexEntry, global bool) {
+	if cmd, _, _ := rootCmd.Find([]string{dep.Alias}); cmd != rootCmd {
+		log.Spamf("cannot register already registered command '%s'", dep.Alias)
 		return
 	}
 
-	cmdConfig, err := config.LoadCommandConfig(commandConfigPath)
+	cmdConfig, err := schema.LoadCommandConfig(filepath.Join(dep.Path, "manifest.yaml"))
 	if err != nil {
-		log.Warnf("cannot load command: %s", err)
+		log.Warnf("Cannot load command: %s", err)
 		return
 	}
 
 	cmd := &cobra.Command{
-		Use:                cmdName.Name,
+		Use:                dep.Alias,
 		Short:              cmdConfig.Description,
 		Long:               "",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			externalCmdPath := filepath.Join(cmdDir, cmdConfig.BinPath)
+			externalCmdPath := filepath.Join(dep.Path, cmdConfig.BinPath)
 			var externalCmd *exec.Cmd
 			if runtime.GOOS == "windows" {
 				args = append([]string{"/c", externalCmdPath}, args...)
@@ -72,7 +65,7 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 				stdoutLogProcessor.DefaultLevel = log.InfoLevel
 				stdoutLogProcessor.Input = stdoutPipe
 				stdoutLogProcessor.Logger = log.DefaultLogger
-				go func () {
+				go func() {
 					stdoutLogProcessor.Process()
 					wg.Done()
 				}()
@@ -82,23 +75,23 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 				stderrLogProcessor.DefaultLevel = log.ErrorLevel
 				stderrLogProcessor.Input = stderrPipe
 				stderrLogProcessor.Logger = log.ErrorLogger
-				go func () {
+				go func() {
 					stderrLogProcessor.Process()
 					wg.Done()
 				}()
 			}
 
-			version := make(chan string, 1)
-			timeout := make(chan bool, 1)
+			updateMsgChannel := make(chan string, 1)
+			timeoutChannel := make(chan bool, 1)
 			go func() {
 				time.Sleep(5 * time.Second)
-				timeout <- true
+				timeoutChannel <- true
 			}()
-			go checkForNewVersion(filepath.Dir(cmdConfig.Meta.Path), cmdName, cmdConfig.Version, version)
+			go getUpdateMessage(dep, global, updateMsgChannel)
 
 			_ = os.Setenv("G2A_CLI_GLOBAL_COMMAND", strconv.FormatBool(global))
 
-			log.Debugf(`running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
+			log.Debugf(`Running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
 
 			if err := externalCmd.Start(); err != nil {
 				log.Fatal(err)
@@ -109,19 +102,13 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 			err = externalCmd.Wait()
 
 			select {
-			case v := <-version:
-				if v != "" {
-					g := ""
-					if global {
-						g = "-g "
+			case msg := <-updateMsgChannel:
+				if msg != "" {
+					for _, line := range strings.Split(msg, "\n") {
+						log.ErrorLogger.Println(&log.Message{Level: log.WarnLevel, Text: line})
 					}
-					cmdGet := fmt.Sprintf("g2a get %s%s@%s", g, cmdName, v)
-					log.ErrorLogger.Print(&log.Message{
-						Level: log.WarnLevel,
-						Text: fmt.Sprintf(`there is new version %v available for %s command - please update using: %s`, v, cmdName, cmdGet),
-					})
 				}
-			case <-timeout:
+			case <-timeoutChannel:
 				break
 			}
 
@@ -134,80 +121,40 @@ func loadExternalCommand(rootCmd *cobra.Command, commandConfigPath string, globa
 				}
 			}
 		},
-		Version: cmdConfig.Version,
+		Version: fmt.Sprintf("%s (arch: %s, os: %s)", dep.Version.Number, dep.Version.Arch, dep.Version.OS),
 	}
 	rootCmd.AddCommand(cmd)
 }
 
-func checkForNewVersion(cmdDir string, cmdName cmdname.CmdName, cmdVersion string, version chan<- string) {
-	result := loadVersionFromCache("command-" + cmdName.DirName())
+func getUpdateMessage(dep schema.DependenciesIndexEntry, global bool, msg chan<- string) {
+	depMgr := dependency.NewManager()
 
-	if cmdVersion == "" {
-		log.Spamf("version for %s not specified, unable to check for new version", cmdName)
-		version <- ""
-		return
+	getInstallCmd := func(ver string) string {
+		cmd := "g2a get"
+
+		if global {
+			cmd += " -g"
+		}
+		cmd += fmt.Sprintf(" %s@%s --from %s", dep.Name, ver, dep.Registry)
+		if dep.Name != dep.Alias {
+			cmd += fmt.Sprintf(" --as %s", dep.Alias)
+		}
+
+		return cmd
 	}
-	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", cmdVersion))
+
+	// Check for new version
+	update, err := depMgr.GetUpdateFor(schema.Dependency{Registry: dep.Registry, Name: dep.Name, Version: dep.Version.Number})
 	if err != nil {
-		log.Spamf("unable to check for new %s version: %s", cmdName, err)
-		version <- ""
-		return
+		log.Warn(err)
 	}
 
-	if result == "" {
-		commandRegistry, err := loadRegistry(cmdName)
-		if err != nil {
-			log.Spam(err.Error())
-			version <- ""
-			return
-		}
-
-		versions, err := commandRegistry.ListCommandVersions(cmdName.Name)
-		if err != nil {
-			log.Spamf("unable to get %s command versions: %s", cmdName, err)
-			version <- ""
-			return
-		}
-		cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
-		if !ok {
-			log.Spamf("no new versions of '%s' command", cmdName)
-			result = cmdVersion
-		} else {
-			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
-		}
-
-		saveVersionToCache("command-"+cmdName.DirName(), result)
-	}
-
-	if ver, err := semver.NewVersion(result); err == nil && versionConstraint.Check(ver) {
-		version <- result
+	// Message
+	if update.NonBreaking == "" && update.Breaking == "" {
+		msg <- ""
+	} else if update.NonBreaking != "" {
+		msg <- fmt.Sprintf("New version of this command is available, please update it using:\n    %s", getInstallCmd(update.NonBreaking))
 	} else {
-		version <- ""
+		msg <- fmt.Sprintf("New version of this command is available, but it may introduce some BREAKING CHANGES. Please consider updating it using:\n    %s", getInstallCmd(update.Breaking))
 	}
-}
-
-func loadRegistry(cmdName cmdname.CmdName) (*registry.Registry, error) {
-	if cmdName.Registry == registry.DefaultRegistryPrefix {
-		var err error
-		reg, err := registry.New(registry.DefaultRegistry)
-		return reg, err
-	}
-
-	baseDir, ok := discover.ProjectRootDir()
-	if !ok {
-		return nil, errors.New("not in project directory - aborting version check")
-	}
-	projectConfig, err := config.LoadProjectConfig(filepath.Join(baseDir, "g2a.yaml"))
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading project config")
-	}
-	regMap, err := registry.NewRegistriesMap(projectConfig.CLI.Registries)
-	if err != nil {
-		return nil, err
-	}
-	reg, ok := regMap[cmdName.Registry]
-	if !ok {
-		return nil, fmt.Errorf("command registry not found for %s", cmdName)
-	}
-	return reg, nil
 }

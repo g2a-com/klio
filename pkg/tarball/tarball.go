@@ -16,7 +16,7 @@ import (
 
 // Extract extracts tar.gz archive into specified directory
 func Extract(gzipStream io.Reader, outputDir string) error {
-	log.Debugf("start extracting tarball to %s", outputDir)
+	log.Debugf("Start extracting tarball to %s", outputDir)
 
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
@@ -40,12 +40,12 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			log.Spamf("creating directory: %s", path)
+			log.Spamf("Creating directory: %s", path)
 			if err := os.Mkdir(path, 0755); err != nil && !os.IsExist(err) {
 				return err
 			}
 		case tar.TypeReg:
-			log.Spamf("creating file: %s", path)
+			log.Spamf("Creating file: %s", path)
 			outFile, err := os.Create(path)
 			if err != nil {
 				return err

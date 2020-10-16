@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
+	// "time"
 
 	"github.com/g2a-com/klio/pkg/log"
 
@@ -18,10 +18,10 @@ func main() {
 	version := make(chan string, 1)
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(5 * time.Second)
+		// time.Sleep(5 * time.Second)
 		timeout <- true
 	}()
-	go cmd.CheckForNewRootVersion(version)
+	// go cmd.CheckForNewRootVersion(version)
 
 	err := rootCmd.Execute()
 

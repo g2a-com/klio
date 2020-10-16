@@ -1,17 +1,12 @@
 package root
 
 import (
-	"fmt"
 	"os"
-	"runtime"
 	"strings"
-
-	"github.com/Masterminds/semver"
-	"github.com/g2a-com/klio/pkg/registry"
 
 	"github.com/spf13/cobra"
 	getCommand "github.com/g2a-com/klio/cmd/get"
-	"github.com/g2a-com/klio/pkg/discover"
+	"github.com/g2a-com/klio/pkg/dependency"
 	"github.com/g2a-com/klio/pkg/log"
 )
 
@@ -50,59 +45,29 @@ servers like Jenkins, Bamboo or TeamCity.`,
 		_ = os.Setenv("G2A_CLI_LOG_LEVEL", log.GetLevel())
 	}
 
+	// Discover commands
+	depsMgr := dependency.NewManager()
+	globalCommands, err := depsMgr.GetInstalledCommands(dependency.GlobalScope)
+	if err != nil {
+		log.Verbose(err)
+	}
+	projectCommands, err := depsMgr.GetInstalledCommands(dependency.ProjectScope)
+	if err != nil {
+		log.Verbose(err)
+	}
+
 	// Register builtin commands
 	cmd.AddCommand(getCommand.NewCommand())
 
-	// Register local commands (installed under project directory)
-	for _, path := range discover.LocalCommandPaths() {
-		loadExternalCommand(cmd, path, false)
+	// Register external commands
+	for _, dep := range projectCommands {
+		loadExternalCommand(cmd, dep, false)
 	}
 
 	// Register global commands (installed under user's home directory)
-	for _, path := range discover.UserCommandPaths() {
+	for _, path := range globalCommands {
 		loadExternalCommand(cmd, path, true)
 	}
 
 	return cmd
-}
-
-func CheckForNewRootVersion(version chan<- string) {
-	result := loadVersionFromCache("root")
-
-	versionConstraint, err := semver.NewConstraint(fmt.Sprintf(">%s", VERSION))
-	if err != nil {
-		log.Spamf("unable to check for new g2a cli version: %s", err)
-		version <- ""
-		return
-	}
-
-	if result == "" {
-		commandRegistry, err := registry.New(registry.DefaultRegistry)
-		if err != nil {
-			log.Spamf("failed to parse registry URL: %s", err)
-			version <- ""
-			return
-		}
-		versions, err := commandRegistry.ListRootVersions()
-		if err != nil {
-			log.Spamf("unable to get g2a cli versions: %s", err)
-			version <- ""
-			return
-		}
-		cmdMatchedVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
-		if !ok {
-			log.Spam("no new versions of g2a cli")
-			result = VERSION
-		} else {
-			result = strings.Replace(cmdMatchedVersion.String()[1:], fmt.Sprintf("-%s-%s", runtime.GOOS, runtime.GOARCH), "", 1)
-		}
-
-		saveVersionToCache("root", result)
-	}
-
-	if ver, err := semver.NewVersion(result); err == nil && versionConstraint.Check(ver) {
-		version <- result
-	} else {
-		version <- ""
-	}
 }
