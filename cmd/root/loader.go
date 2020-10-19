@@ -135,7 +135,7 @@ func getUpdateMessage(dep schema.DependenciesIndexEntry, global bool, msg chan<-
 		if global {
 			cmd += " -g"
 		}
-		cmd += fmt.Sprintf(" %s@%s --from %s", dep.Name, ver, dep.Registry)
+		cmd += fmt.Sprintf(" %s --version %s --from %s", dep.Name, ver, dep.Registry)
 		if dep.Name != dep.Alias {
 			cmd += fmt.Sprintf(" --as %s", dep.Alias)
 		}
