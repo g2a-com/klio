@@ -74,10 +74,10 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 	updates := Updates{}
 
 	if nonBreaking != nil {
-		updates.NonBreaking = nonBreaking.Version.Number
+		updates.NonBreaking = nonBreaking.Version
 	}
 	if breaking != nil {
-		updates.Breaking = breaking.Version.Number
+		updates.Breaking = breaking.Version
 	}
 
 	return updates, nil
@@ -177,6 +177,9 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  entry.Version,
+		OS:       entry.OS,
+		Arch:     entry.Arch,
+		Checksum: entry.Checksum,
 		Path:     outputRelPath,
 	})
 	index.Entries = newEntries
@@ -189,7 +192,7 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 
 	// Return info about installed dependency
 	result := dep
-	result.Version = entry.Version.Number
+	result.Version = entry.Version
 	result.Checksum = checksum
 
 	return &result, nil

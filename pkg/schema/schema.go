@@ -177,11 +177,13 @@ type Registry struct {
 }
 
 type RegistryEntry struct {
-	Name        string               `yaml:"name"`
-	Version     RegistryEntryVersion `yaml:"version"`
-	Annotations map[string]string    `yaml:"annotations"`
-	URL         string               `yaml:"url"`
-	Checksum    string               `yaml:"checksum"`
+	Name        string            `yaml:"name"`
+	Version     string            `yaml:"version"`
+	OS          string            `json:"os"`
+	Arch        string            `json:"arch"`
+	Annotations map[string]string `yaml:"annotations"`
+	URL         string            `yaml:"url"`
+	Checksum    string            `yaml:"checksum"`
 }
 
 type RegistryEntryVersion struct {
@@ -198,10 +200,12 @@ type DependenciesIndex struct {
 }
 
 type DependenciesIndexEntry struct {
-	//Type     string               `json:"type"`
-	Alias    string               `json:"alias"`
-	Registry string               `json:"registry"`
-	Name     string               `json:"name"`
-	Version  RegistryEntryVersion `json:"version"`
-	Path     string               `json:"path"`
+	Alias    string `json:"alias"`
+	Registry string `json:"registry"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	OS       string `json:"os"`
+	Arch     string `json:"arch"`
+	Checksum string `json:"checksum"`
+	Path     string `json:"path"`
 }

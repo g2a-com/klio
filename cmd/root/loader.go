@@ -121,7 +121,7 @@ func loadExternalCommand(rootCmd *cobra.Command, dep schema.DependenciesIndexEnt
 				}
 			}
 		},
-		Version: fmt.Sprintf("%s (arch: %s, os: %s)", dep.Version.Number, dep.Version.Arch, dep.Version.OS),
+		Version: fmt.Sprintf("%s (registry: %s, arch: %s, os: %s, checksum: %s)", dep.Version, dep.Registry, dep.Arch, dep.OS, dep.Checksum),
 	}
 	rootCmd.AddCommand(cmd)
 }
@@ -144,7 +144,7 @@ func getUpdateMessage(dep schema.DependenciesIndexEntry, global bool, msg chan<-
 	}
 
 	// Check for new version
-	update, err := depMgr.GetUpdateFor(schema.Dependency{Registry: dep.Registry, Name: dep.Name, Version: dep.Version.Number})
+	update, err := depMgr.GetUpdateFor(schema.Dependency{Registry: dep.Registry, Name: dep.Name, Version: dep.Version})
 	if err != nil {
 		log.Warn(err)
 	}

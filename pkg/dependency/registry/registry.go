@@ -3,6 +3,7 @@ package registry
 import (
 	"io/ioutil"
 	"net/http"
+	"runtime"
 	"strings"
 
 	"github.com/g2a-com/klio/pkg/log"
@@ -68,11 +69,19 @@ func (reg *Registry) FindCompatibleDependency(dep schema.Dependency) (entry *sch
 
 	for idx, entry := range reg.data.Entries {
 		ver := Version(entry.Version)
-		if dep.Name == entry.Name && ver.IsCompatible() && ver.Match(dep.Version) && (result == nil || ver.GreaterThan(resultVer)) {
+		if dep.Name == entry.Name && isCompatible(&entry) && ver.Match(dep.Version) && (result == nil || ver.GreaterThan(resultVer) || isMoreSpecific(&entry, result)) {
 			result = &reg.data.Entries[idx]
 			resultVer = ver
 		}
 	}
 
 	return result
+}
+
+func isCompatible(entry *schema.RegistryEntry) bool {
+	return (entry.OS == runtime.GOOS || entry.OS == "") && (entry.Arch == runtime.GOARCH || entry.Arch == "")
+}
+
+func isMoreSpecific(entry1 *schema.RegistryEntry, entry2 *schema.RegistryEntry) bool {
+	return (entry1.OS != "" && entry2.OS == "") || (entry1.Arch != "" && entry2.Arch == "")
 }
