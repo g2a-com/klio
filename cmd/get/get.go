@@ -1,25 +1,25 @@
 package get
 
 import (
-	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 
-	"github.com/g2a-com/klio/pkg/cmdname"
-	"github.com/g2a-com/klio/pkg/config"
+	"github.com/g2a-com/klio/pkg/dependency"
 	"github.com/g2a-com/klio/pkg/discover"
 	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/registry"
+	"github.com/g2a-com/klio/pkg/schema"
 
-	"github.com/Masterminds/semver"
 	"github.com/spf13/cobra"
 )
 
+var defaultRegistry string
+
 // Options for a get command
 type options struct {
-	Global bool
-	NoSave bool
+	Global  bool
+	NoSave  bool
+	From    string
+	As      string
+	Version string
 }
 
 // NewCommand creates a new get command
@@ -34,6 +34,9 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&opts.Global, "global", "g", false, "install command globally")
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "prevent saving to dependencies")
+	cmd.Flags().StringVar(&opts.From, "from", "", "address of the registry")
+	cmd.Flags().StringVar(&opts.As, "as", "", "changes name under which dependency is installed")
+	cmd.Flags().StringVar(&opts.Version, "version", "*", "version range of the dependency")
 
 	return cmd
 }
@@ -41,126 +44,93 @@ func NewCommand() *cobra.Command {
 func (opts *options) run(cmd *cobra.Command, args []string) {
 	// Find directory for installing packages
 	var baseDir string
-	var projectConfig *config.ProjectConfig
+	var projectConfig *schema.ProjectConfig
 	var ok bool
 	var err error
-	var commandRegistries map[string]*registry.Registry
+	var scope dependency.ScopeType
+	var installedDeps []schema.Dependency
+	var registry string
+
+	depsMgr := dependency.NewManager()
+	depsMgr.DefaultRegistry = defaultRegistry
 
 	if opts.Global {
+		scope = dependency.GlobalScope
 		baseDir, ok = discover.UserHomeDir()
 		if !ok {
-			log.Fatal("cannot find user's home directory")
+			log.Fatal("Cannot find user's home directory")
 		}
-
-		commandRegistries = make(map[string]*registry.Registry)
-		reg, err := registry.New(registry.DefaultRegistry)
-		if err != nil {
-			log.Error(err)
-			os.Exit(1)
-		}
-		commandRegistries[registry.DefaultRegistryPrefix] = reg
 	} else {
+		scope = dependency.ProjectScope
 		baseDir, ok = discover.ProjectRootDir()
 		if !ok {
-			log.Fatal(`packages can be installed locally only under project directory, use "--global" option`)
+			log.Fatal(`Packages can be installed locally only under project directory, use "--global" option`)
 		}
-		projectConfig, err = config.LoadProjectConfig(filepath.Join(baseDir, "g2a.yaml"))
+		projectConfig, err = schema.LoadProjectConfig(filepath.Join(baseDir, "g2a.yaml"))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		commandRegistries, err = registry.NewRegistriesMap(projectConfig.CLI.Registries)
-		if err != nil {
-			log.Error(err)
-			os.Exit(1)
+		if registry != "" {
+			registry = opts.From
+		}
+		if projectConfig.DefaultRegistry != "" {
+			depsMgr.DefaultRegistry = projectConfig.DefaultRegistry
 		}
 	}
 
-	var commandsToInstall map[string]string
+	var toInstall []schema.Dependency
 
 	if len(args) == 0 && !opts.Global {
-		opts.NoSave = true // don't save g2a.yaml when installing from it
-		commandsToInstall = projectConfig.CLI.Commands
+		toInstall = projectConfig.Dependencies
 	} else {
-		commandsToInstall = map[string]string{}
-		for _, arg := range args {
-			argParts := strings.SplitN(arg, "@", 2)
-			if len(argParts) == 1 {
-				commandsToInstall[argParts[0]] = "*"
+		toInstall = []schema.Dependency{
+			schema.Dependency{
+				Name:     args[0],
+				Version:  opts.Version,
+				Registry: opts.From,
+				Alias:    opts.As,
+			},
+		}
+	}
+
+	for _, dep := range toInstall {
+		installedDep, err := depsMgr.InstallDependency(dep, scope)
+
+		if err != nil {
+			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
+		} else {
+			if installedDep.Alias == "" {
+				log.Infof("Installed %s@%s from %s", installedDep.Name, installedDep.Version, installedDep.Registry)
 			} else {
-				commandsToInstall[argParts[0]] = argParts[1]
+				log.Infof("Installed %s@%s from %s as %s", installedDep.Name, installedDep.Version, installedDep.Registry, installedDep.Alias)
 			}
 		}
-	}
 
-	dir := filepath.Join(baseDir, filepath.FromSlash(".g2a/cli-commands"))
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			log.Errorf("unable to create directory: %s due to %s", dir, err)
-			os.Exit(1)
-		}
-	}
-
-	// Download packages
-	exitCode := 0
-	installedCommands := map[string]string{}
-
-	for cmdPath, versionRange := range commandsToInstall {
-		cmdName := cmdname.New(cmdPath)
-		versionConstraint, err := semver.NewConstraint(versionRange)
-		if err != nil {
-			log.Errorf("invalid version range %s@%s", cmdName, versionRange)
-			exitCode = 1
-			continue
-		}
-
-		registry, ok := commandRegistries[cmdName.Registry]
-		if !ok {
-			log.Errorf("No registry found for command %s", cmdName)
-			exitCode = 1
-			continue
-		}
-
-		versions, err := registry.ListCommandVersions(cmdName.Name)
-		if err != nil {
-			log.Error(err)
-			exitCode = 1
-			continue
-		}
-		log.Spamf("found following versions for %s@%s: %s", cmdName, versionRange, versions)
-
-		cmdVersion, ok := versions.MatchVersion(versionConstraint, runtime.GOOS, runtime.GOARCH)
-		if !ok {
-			log.Errorf("no matching version found for %s@%s", cmdName, versionRange)
-			exitCode = 1
-			continue
-		}
-		log.Spamf("found matching version for %s@%s: %s", cmdName, versionRange, versions)
-
-		outputDir := filepath.Join(dir, cmdName.DirName())
-		err = registry.DownloadCommand(cmdName.Name, cmdVersion, outputDir)
-		if err != nil {
-			log.Errorf("failed to download %s@%s: %s", cmdName, cmdVersion.Version, err)
-			exitCode = 1
-			continue
-		} else {
-			log.Infof("downloaded %s@%s", cmdName, cmdVersion.Version)
-		}
-
-		installedCommands[cmdName.String()] = cmdVersion.Version.String()
+		installedDeps = append(installedDeps, *installedDep)
 	}
 
 	if !opts.Global && !opts.NoSave {
-		for c, v := range installedCommands {
-			projectConfig.CLI.Commands[c] = v
+		for _, installedDep := range installedDeps {
+			var idx int
+			for idx = 0; idx < len(projectConfig.Dependencies); idx++ {
+				if projectConfig.Dependencies[idx].Alias == installedDep.Alias {
+					break
+				}
+			}
+			if idx != len(projectConfig.Dependencies) {
+				projectConfig.Dependencies[idx] = installedDep
+			} else {
+				projectConfig.Dependencies = append(projectConfig.Dependencies, installedDep)
+			}
 		}
-		err := config.SaveProjectConfig(projectConfig)
-		if err != nil {
-			log.Errorf("unable to update commands list in the g2a.yaml file")
-		}
-		log.Infof("updated commands list in the g2a.yaml file")
-	}
 
-	os.Exit(exitCode)
+		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
+
+		if err := schema.SaveProjectConfig(projectConfig); err != nil {
+			log.Errorf("Unable to update dependencies in the g2a.yaml file: %s", err)
+		} else {
+			log.Infof("Updated dependencies in the g2a.yaml file")
+		}
+	}
 }

@@ -166,3 +166,17 @@ func Logf(level Level, format string, args ...interface{}) {
 		Text: fmt.Sprintf(format, args...),
 	})
 }
+
+// LogAndExit prints message with specified level and calls os.Exit(1)
+func LogAndExit(level Level, v ...interface{}) {
+	Log(level, v...)
+	// TODO: flush?
+	os.Exit(1)
+}
+
+// LogfAndExit prints message with specified level and calls os.Exit(1)
+func LogfAndExit(level Level, format string, args ...interface{}) {
+	Logf(level, format, args...)
+	// TODO: flush?
+	os.Exit(1)
+}

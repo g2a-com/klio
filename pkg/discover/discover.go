@@ -62,40 +62,18 @@ func ProjectRootDir() (string, bool) {
 	return dir, true
 }
 
-// LocalCommandPaths returns list of paths for custom commands installed locally
-// in the repository
-func LocalCommandPaths() []string {
-	projectDir, ok := ProjectRootDir()
-
-	if !ok {
-		return []string{}
+func ProjectKlioDir() (string, bool) {
+	if projectDir, ok := ProjectRootDir(); ok {
+		return filepath.Join(projectDir, ".g2a"), true
+	} else {
+		return "", false
 	}
-
-	globPattern := filepath.Join(projectDir, filepath.FromSlash(".g2a/cli-commands/*/command.yaml"))
-	paths, err := filepath.Glob(globPattern)
-
-	if err != nil {
-		return []string{}
-	}
-
-	return paths
 }
 
-// UserCommandPaths returns list of paths for custom commands installed
-// under the user's home directory
-func UserCommandPaths() []string {
-	homeDir, ok := UserHomeDir()
-
-	if !ok {
-		return []string{}
+func GlobalKlioDir() (string, bool) {
+	if projectDir, ok := UserHomeDir(); ok {
+		return filepath.Join(projectDir, ".g2a"), true
+	} else {
+		return "", false
 	}
-
-	globPattern := filepath.Join(homeDir, filepath.FromSlash(".g2a/cli-commands/*/command.yaml"))
-	paths, err := filepath.Glob(globPattern)
-
-	if err != nil {
-		return []string{}
-	}
-
-	return paths
 }
