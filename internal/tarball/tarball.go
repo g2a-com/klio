@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/g2a-com/klio/pkg/log"
+	"github.com/g2a-com/klio/internal/log"
 )
 
 // Extract extracts tar.gz archive into specified directory

@@ -8,17 +8,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/internal/schema"
 	"github.com/spf13/cobra"
-	"github.com/g2a-com/klio/pkg/dependency"
-	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/schema"
 )
 
-func loadExternalCommand(rootCmd *cobra.Command, dep schema.DependenciesIndexEntry, global bool) {
+func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep schema.DependenciesIndexEntry, global bool) {
 	if cmd, _, _ := rootCmd.Find([]string{dep.Alias}); cmd != rootCmd {
 		log.Spamf("cannot register already registered command '%s'", dep.Alias)
 		return
@@ -87,9 +87,7 @@ func loadExternalCommand(rootCmd *cobra.Command, dep schema.DependenciesIndexEnt
 				time.Sleep(5 * time.Second)
 				timeoutChannel <- true
 			}()
-			go getUpdateMessage(dep, global, updateMsgChannel)
-
-			_ = os.Setenv("G2A_CLI_GLOBAL_COMMAND", strconv.FormatBool(global))
+			go getUpdateMessage(ctx, dep, global, updateMsgChannel)
 
 			log.Debugf(`Running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
 
@@ -126,11 +124,11 @@ func loadExternalCommand(rootCmd *cobra.Command, dep schema.DependenciesIndexEnt
 	rootCmd.AddCommand(cmd)
 }
 
-func getUpdateMessage(dep schema.DependenciesIndexEntry, global bool, msg chan<- string) {
-	depMgr := dependency.NewManager()
+func getUpdateMessage(ctx context.CLIContext, dep schema.DependenciesIndexEntry, global bool, msg chan<- string) {
+	depMgr := dependency.NewManager(ctx)
 
 	getInstallCmd := func(ver string) string {
-		cmd := "g2a get"
+		cmd := fmt.Sprintf("%s get", ctx.Config.CommandName)
 
 		if global {
 			cmd += " -g"

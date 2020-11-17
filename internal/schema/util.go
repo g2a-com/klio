@@ -11,7 +11,7 @@ import (
 	"gopkg.in/go-playground/validator.v9"
 	"gopkg.in/yaml.v3"
 
-	"github.com/g2a-com/klio/pkg/log"
+	"github.com/g2a-com/klio/internal/log"
 )
 
 // LoadConfigFile reads, parses and validates specified configuration file

@@ -4,26 +4,22 @@ import (
 	"os"
 	"strings"
 
+	getCommand "github.com/g2a-com/klio/internal/cmd/get"
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/log"
 	"github.com/spf13/cobra"
-	getCommand "github.com/g2a-com/klio/cmd/get"
-	"github.com/g2a-com/klio/pkg/dependency"
-	"github.com/g2a-com/klio/pkg/log"
 )
 
-// NewCommand returns root command for a G2A CLI
-func NewCommand() *cobra.Command {
+// NewCommand returns root command for a klio
+func NewCommand(ctx context.CLIContext) *cobra.Command {
 	var cmd = &cobra.Command{
-		Use:   "g2a",
-		Short: "One tool to rule all G2A applications",
-		Long: `The G2A CLI is a tool designed to get you working quickly and efficiently with
-G2A services, with an emphasis on automation. It unifies and generalises all
-work you need to do in order to run, build and deploy G2A services. G2A CLI is
-intended to be used the same way on developer’s local machine or on CI/CD
-servers like Jenkins, Bamboo or TeamCity.`,
-		Version: VERSION,
+		Use:     ctx.Config.CommandName,
+		Long:    ctx.Config.Description,
+		Version: ctx.Config.Version,
 	}
 
-	// Setup flags
+	// Setup flag
 	verbosity := cmd.PersistentFlags().CountP("verbose", "v", "more verbose output (-vv... to further increase verbosity)")
 	logLevel := cmd.PersistentFlags().String("log-level", log.GetDefaultLevel(), "set logs level: "+strings.Join(log.LevelNames, ", "))
 
@@ -38,15 +34,15 @@ servers like Jenkins, Bamboo or TeamCity.`,
 	log.SetLevel(*logLevel)
 	log.IncreaseLevel(*verbosity)
 
-	envLogLevel, ok := os.LookupEnv("G2A_CLI_LOG_LEVEL")
+	envLogLevel, ok := os.LookupEnv("KLIO_LOG_LEVEL")
 	if ok {
 		log.SetLevel(envLogLevel)
 	} else {
-		_ = os.Setenv("G2A_CLI_LOG_LEVEL", log.GetLevel())
+		_ = os.Setenv("KLIO_LOG_LEVEL", log.GetLevel())
 	}
 
 	// Discover commands
-	depsMgr := dependency.NewManager()
+	depsMgr := dependency.NewManager(ctx)
 	globalCommands, err := depsMgr.GetInstalledCommands(dependency.GlobalScope)
 	if err != nil {
 		log.Verbose(err)
@@ -57,16 +53,16 @@ servers like Jenkins, Bamboo or TeamCity.`,
 	}
 
 	// Register builtin commands
-	cmd.AddCommand(getCommand.NewCommand())
+	cmd.AddCommand(getCommand.NewCommand(ctx))
 
 	// Register external commands
 	for _, dep := range projectCommands {
-		loadExternalCommand(cmd, dep, false)
+		loadExternalCommand(ctx, cmd, dep, false)
 	}
 
 	// Register global commands (installed under user's home directory)
 	for _, path := range globalCommands {
-		loadExternalCommand(cmd, path, true)
+		loadExternalCommand(ctx, cmd, path, true)
 	}
 
 	return cmd

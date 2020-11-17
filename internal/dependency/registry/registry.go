@@ -6,14 +6,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/schema"
+	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/internal/schema"
 
 	"gopkg.in/yaml.v3"
 )
-
-var DefaultRegistry string
-const DefaultRegistryPrefix = "g2a"
 
 // Registry represents some commands registry hosted by Artifactory
 type Registry struct {
