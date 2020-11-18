@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CommandConfigKind defines kind property value of for g2a.yaml files
+// CommandConfigKind defines kind property value of for klio.yaml files
 const CommandConfigKind string = "Command"
 
 type GenericConfigFile struct {
@@ -18,7 +18,7 @@ type GenericConfigFile struct {
 	Kind string `yaml:"kind"`
 }
 
-// CommandConfig describes structure of g2a.yaml files
+// CommandConfig describes structure of klio.yaml files
 type CommandConfig struct {
 	// Meta stores metadata of the config file (such as a path).
 	Meta Metadata `yaml:"-"`
@@ -28,11 +28,11 @@ type CommandConfig struct {
 	Kind string `yaml:"kind,omitempty" validate:"eq=Command"`
 	// Name of the command.
 	BinPath string `yaml:"binPath,omitempty" validate:"required,file"`
-	// Description of the command used by core "g2a" binary in order to show usage.
+	// Description of the command used by core "klio" binary in order to show usage.
 	Description string `yaml:"description,omitempty"`
 }
 
-// PluginConfig describes structure of g2a.yaml files
+// PluginConfig describes structure of klio.yaml files
 type PluginConfig struct {
 	// Meta stores metadata of the config file (such as a path).
 	Meta Metadata `yaml:"-"`
@@ -42,11 +42,11 @@ type PluginConfig struct {
 	Kind string `yaml:"kind,omitempty" validate:"eq=Command"`
 	// Name of the command.
 	BinPath string `yaml:"binPath,omitempty" validate:"required,file"`
-	// Description of the command used by core "g2a" binary in order to show usage.
+	// Description of the command used by core "klio" binary in order to show usage.
 	Description string `yaml:"description,omitempty"`
 }
 
-// ProjectConfig describes structure of g2a.yaml files
+// ProjectConfig describes structure of klio.yaml files
 type ProjectConfig struct {
 	Meta            Metadata
 	DefaultRegistry string

@@ -10,12 +10,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/g2a-com/klio/pkg/dependency/registry"
-	"github.com/g2a-com/klio/pkg/discover"
-	"github.com/g2a-com/klio/pkg/lock"
-	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/schema"
-	"github.com/g2a-com/klio/pkg/tarball"
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency/registry"
+	"github.com/g2a-com/klio/internal/lock"
+	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/internal/schema"
+	"github.com/g2a-com/klio/internal/tarball"
 )
 
 type ScopeType string
@@ -31,17 +31,15 @@ type Updates struct {
 }
 
 type Manager struct {
-	GlobalKlioDir   string
-	ProjectKlioDir  string
 	DefaultRegistry string
 	registries      map[string]*registry.Registry
+	context         context.CLIContext
 }
 
-func NewManager() *Manager {
-	manager := &Manager{}
-	manager.GlobalKlioDir, _ = discover.GlobalKlioDir()
-	manager.ProjectKlioDir, _ = discover.ProjectKlioDir()
-	return manager
+func NewManager(ctx context.CLIContext) *Manager {
+	return &Manager{
+		context: ctx,
+	}
 }
 
 func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
@@ -84,12 +82,12 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 }
 
 func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*schema.Dependency, error) {
-	klioDir, err := mgr.getKlioDir(scope)
+	installDir, err := mgr.getInstallDir(scope)
 	if err != nil {
 		return nil, err
 	}
-	indexPath := filepath.Join(klioDir, "dependencies.json")
-	indexLockfilePath := filepath.Join(klioDir, "dependencies.lock")
+	indexPath := filepath.Join(installDir, "dependencies.json")
+	indexLockfilePath := filepath.Join(installDir, "dependencies.lock")
 
 	// Fill missing values
 	if dep.Alias == "" {
@@ -97,6 +95,13 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	}
 	if dep.Registry == "" {
 		dep.Registry = mgr.DefaultRegistry
+	}
+
+	// Make sure that install directory exists
+	if _, err := os.Stat(installDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(installDir, 0755); err != nil {
+			log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", installDir, err)
+		}
 	}
 
 	// Acquire lock for updating dependencies.json
@@ -119,13 +124,6 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	entry := mgr.registries[dep.Registry].FindCompatibleDependency(dep)
 	if entry == nil {
 		return nil, fmt.Errorf("cannot find %s@%s in %s", dep.Name, dep.Version, dep.Registry)
-	}
-
-	// Make sure that install directory exists
-	if _, err := os.Stat(klioDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(klioDir, 0755); err != nil {
-			log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", klioDir, err)
-		}
 	}
 
 	// Create temporary file for a tarball
@@ -151,7 +149,7 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 
 	// Prepare output dir
 	outputRelPath := filepath.Join("dependencies", checksum)
-	outputAbsPath := filepath.Join(klioDir, outputRelPath)
+	outputAbsPath := filepath.Join(installDir, outputRelPath)
 	os.MkdirAll(filepath.Dir(outputAbsPath), 0755)
 	os.RemoveAll(outputAbsPath)
 
@@ -199,12 +197,12 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 }
 
 func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]schema.DependenciesIndexEntry, error) {
-	klioDir, err := mgr.getKlioDir(scope)
+	installDir, err := mgr.getInstallDir(scope)
 	if err != nil {
 		return []schema.DependenciesIndexEntry{}, err
 	}
 
-	indexPath := filepath.Join(klioDir, "dependencies.json")
+	indexPath := filepath.Join(installDir, "dependencies.json")
 	indexData, err := schema.LoadDependenciesIndex(indexPath)
 	if err != nil {
 		return []schema.DependenciesIndexEntry{}, err
@@ -212,24 +210,24 @@ func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]schema.Dependencies
 
 	// dependencies.json contains relative paths for commands, make them absolute
 	for idx, _ := range indexData.Entries {
-		indexData.Entries[idx].Path = filepath.Join(klioDir, indexData.Entries[idx].Path)
+		indexData.Entries[idx].Path = filepath.Join(installDir, indexData.Entries[idx].Path)
 	}
 
 	return indexData.Entries, nil
 }
 
-func (mgr *Manager) getKlioDir(scope ScopeType) (string, error) {
+func (mgr *Manager) getInstallDir(scope ScopeType) (string, error) {
 	switch scope {
 	case GlobalScope:
-		if mgr.GlobalKlioDir == "" {
+		if mgr.context.Paths.GlobalInstallDir == "" {
 			return "", errors.New("cannot find global directory")
 		}
-		return mgr.GlobalKlioDir, nil
+		return mgr.context.Paths.GlobalInstallDir, nil
 	case ProjectScope:
-		if mgr.ProjectKlioDir == "" {
+		if mgr.context.Paths.ProjectInstallDir == "" {
 			return "", errors.New("cannot find project directory")
 		}
-		return mgr.ProjectKlioDir, nil
+		return mgr.context.Paths.ProjectInstallDir, nil
 	default:
 		return "", fmt.Errorf("unknown scope: %s", scope)
 	}

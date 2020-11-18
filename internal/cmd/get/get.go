@@ -1,17 +1,15 @@
 package get
 
 import (
-	"path/filepath"
+	"fmt"
 
-	"github.com/g2a-com/klio/pkg/dependency"
-	"github.com/g2a-com/klio/pkg/discover"
-	"github.com/g2a-com/klio/pkg/log"
-	"github.com/g2a-com/klio/pkg/schema"
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/internal/schema"
 
 	"github.com/spf13/cobra"
 )
-
-var defaultRegistry string
 
 // Options for a get command
 type options struct {
@@ -23,13 +21,15 @@ type options struct {
 }
 
 // NewCommand creates a new get command
-func NewCommand() *cobra.Command {
+func NewCommand(ctx context.CLIContext) *cobra.Command {
 	opts := &options{}
 	cmd := &cobra.Command{
 		Use:   "get [command name]",
 		Short: "Install new commands",
-		Long:  "Get (g2a get) will install command to use with G2A CLI.",
-		Run:   opts.run,
+		Long:  fmt.Sprintf("Get (%s get) will install command to use with %s.", ctx.Config.CommandName, ctx.Config.CommandName),
+		Run: func(cmd *cobra.Command, args []string) {
+			run(ctx, opts, cmd, args)
+		},
 	}
 
 	cmd.Flags().BoolVarP(&opts.Global, "global", "g", false, "install command globally")
@@ -41,32 +41,28 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func (opts *options) run(cmd *cobra.Command, args []string) {
+func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []string) {
 	// Find directory for installing packages
-	var baseDir string
 	var projectConfig *schema.ProjectConfig
-	var ok bool
 	var err error
 	var scope dependency.ScopeType
 	var installedDeps []schema.Dependency
 	var registry string
 
-	depsMgr := dependency.NewManager()
-	depsMgr.DefaultRegistry = defaultRegistry
+	depsMgr := dependency.NewManager(ctx)
+	depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
 
 	if opts.Global {
 		scope = dependency.GlobalScope
-		baseDir, ok = discover.UserHomeDir()
-		if !ok {
-			log.Fatal("Cannot find user's home directory")
+		if ctx.Paths.GlobalInstallDir == "" {
+			log.Fatal("Cannot init global install directory")
 		}
 	} else {
 		scope = dependency.ProjectScope
-		baseDir, ok = discover.ProjectRootDir()
-		if !ok {
+		if ctx.Paths.ProjectInstallDir == "" {
 			log.Fatal(`Packages can be installed locally only under project directory, use "--global" option`)
 		}
-		projectConfig, err = schema.LoadProjectConfig(filepath.Join(baseDir, "g2a.yaml"))
+		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -128,9 +124,9 @@ func (opts *options) run(cmd *cobra.Command, args []string) {
 		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
 
 		if err := schema.SaveProjectConfig(projectConfig); err != nil {
-			log.Errorf("Unable to update dependencies in the g2a.yaml file: %s", err)
+			log.Errorf("Unable to update dependencies in the %s file: %s", ctx.Config.ProjectConfigFileName, err)
 		} else {
-			log.Infof("Updated dependencies in the g2a.yaml file")
+			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
 		}
 	}
 }

@@ -1,7 +1,7 @@
 package lock
 
 import (
-	"github.com/g2a-com/klio/pkg/log"
+	"github.com/g2a-com/klio/internal/log"
 
 	"github.com/nightlyone/lockfile"
 )

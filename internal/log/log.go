@@ -35,7 +35,7 @@ func GetDefaultLevel() string {
 
 // SetLevelFromEnv sets minimum level for logs based on environment variables
 func SetLevelFromEnv() {
-	SetLevel(os.Getenv("G2A_CLI_LOG_LEVEL"))
+	SetLevel(os.Getenv("KLIO_CLI_LOG_LEVEL"))
 }
 
 // GetLevel returns current logging level name
@@ -45,13 +45,13 @@ func GetLevel() string {
 
 // IncreaseLevel changes current level by specified number
 func IncreaseLevel(levels int) {
-	if DefaultLogger.Level + Level(levels) > MaxLevel {
+	if DefaultLogger.Level+Level(levels) > MaxLevel {
 		DefaultLogger.Level = MaxLevel
 	} else {
 		DefaultLogger.Level = DefaultLogger.Level + Level(levels)
 	}
 
-	if ErrorLogger.Level + Level(levels) > MaxLevel {
+	if ErrorLogger.Level+Level(levels) > MaxLevel {
 		ErrorLogger.Level = MaxLevel
 	} else {
 		ErrorLogger.Level = ErrorLogger.Level + Level(levels)
@@ -155,7 +155,7 @@ func Spamf(format string, args ...interface{}) {
 func Log(level Level, v ...interface{}) {
 	DefaultLogger.Println(&Message{
 		Level: level,
-		Text: fmt.Sprint(v...),
+		Text:  fmt.Sprint(v...),
 	})
 }
 
@@ -163,7 +163,7 @@ func Log(level Level, v ...interface{}) {
 func Logf(level Level, format string, args ...interface{}) {
 	DefaultLogger.Println(&Message{
 		Level: level,
-		Text: fmt.Sprintf(format, args...),
+		Text:  fmt.Sprintf(format, args...),
 	})
 }
 
