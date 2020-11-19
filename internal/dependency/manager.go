@@ -150,8 +150,8 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	// Prepare output dir
 	outputRelPath := filepath.Join("dependencies", checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
-	os.MkdirAll(filepath.Dir(outputAbsPath), 0755)
 	os.RemoveAll(outputAbsPath)
+	os.MkdirAll(outputAbsPath, 0755)
 
 	// Extract tarball
 	file.Seek(0, io.SeekStart)
@@ -238,7 +238,7 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return checksum, err
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -250,10 +250,10 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 
 		if n != 0 {
 			if _, err := hash.Write(buf[0:n]); err != nil {
-				return checksum, err
+				return "", err
 			}
 			if _, err := file.Write(buf[0:n]); err != nil {
-				return checksum, err
+				return "", err
 			}
 		}
 
@@ -261,11 +261,9 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 			break
 		}
 		if err != nil {
-			return checksum, err
+			return "", err
 		}
-
-		checksum = fmt.Sprintf("sha256-%x", hash.Sum(nil))
 	}
 
-	return checksum, err
+	return fmt.Sprintf("sha256-%x", hash.Sum(nil)), nil
 }
