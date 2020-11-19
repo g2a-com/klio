@@ -58,6 +58,10 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 	var defaultRegistryValueNode *yaml.Node
 	var dependenciesValueNode *yaml.Node
 
+	if p.yaml == nil {
+		return nil, errors.New("missing dependencies or defaultRegistry key")
+	}
+
 	// Find nodes to encode
 	for i := 0; i < len(p.yaml.Content)/2; i++ {
 		k := p.yaml.Content[i*2]
