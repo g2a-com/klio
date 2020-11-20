@@ -58,6 +58,10 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 	var defaultRegistryValueNode *yaml.Node
 	var dependenciesValueNode *yaml.Node
 
+	if p.yaml == nil {
+		return minimalKlioFile(), nil
+	}
+
 	// Find nodes to encode
 	for i := 0; i < len(p.yaml.Content)/2; i++ {
 		k := p.yaml.Content[i*2]
@@ -107,6 +111,24 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 
 	// Return result
 	return p.yaml, nil
+}
+
+func minimalKlioFile() *yaml.Node {
+	return &yaml.Node{
+		Kind: yaml.MappingNode,
+		Tag:  "!!map",
+		Content: []*yaml.Node{
+			{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!str",
+				Value: "dependencies",
+			},
+			{
+				Kind: yaml.MappingNode,
+				Tag:  "!!map",
+			},
+		},
+	}
 }
 
 func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
