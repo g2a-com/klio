@@ -147,11 +147,17 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 		return nil, fmt.Errorf(`checksum of the archive (%s) is different than expected (%s)`, checksum, dep.Checksum)
 	}
 
-	// Prepare output dir
+	// Make sure that output dir exists and is empty
 	outputRelPath := filepath.Join("dependencies", checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
-	os.MkdirAll(filepath.Dir(outputAbsPath), 0755)
-	os.RemoveAll(outputAbsPath)
+	if _, err := os.Stat(outputAbsPath); err == nil {
+		os.RemoveAll(outputAbsPath)
+	} else if !os.IsNotExist(err) {
+		log.LogfAndExit(log.FatalLevel, "unable to remove directory: %s due to %s", outputAbsPath, err)
+	}
+	if err := os.MkdirAll(outputAbsPath, 0755); err != nil {
+		log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", outputAbsPath, err)
+	}
 
 	// Extract tarball
 	file.Seek(0, io.SeekStart)
@@ -238,34 +244,16 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return checksum, err
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	buf := make([]byte, 1024)
 	hash := sha256.New()
+	writer := io.MultiWriter(file, hash)
 
-	for true {
-		n, err := resp.Body.Read(buf)
-
-		if n != 0 {
-			if _, err := hash.Write(buf[0:n]); err != nil {
-				return checksum, err
-			}
-			if _, err := file.Write(buf[0:n]); err != nil {
-				return checksum, err
-			}
-		}
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return checksum, err
-		}
-
-		checksum = fmt.Sprintf("sha256-%x", hash.Sum(nil))
+	if _, err = io.Copy(writer, resp.Body); err != nil {
+		return "", err
 	}
 
-	return checksum, err
+	return fmt.Sprintf("sha256-%x", hash.Sum(nil)), nil
 }
