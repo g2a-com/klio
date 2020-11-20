@@ -147,11 +147,17 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 		return nil, fmt.Errorf(`checksum of the archive (%s) is different than expected (%s)`, checksum, dep.Checksum)
 	}
 
-	// Prepare output dir
+	// Make sure that output dir exists and is empty
 	outputRelPath := filepath.Join("dependencies", checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
-	os.RemoveAll(outputAbsPath)
-	os.MkdirAll(outputAbsPath, 0755)
+	if _, err := os.Stat(outputAbsPath); err == nil {
+		os.RemoveAll(outputAbsPath)
+	} else if !os.IsNotExist(err) {
+		log.LogfAndExit(log.FatalLevel, "unable to remove directory: %s due to %s", outputAbsPath, err)
+	}
+	if err := os.MkdirAll(outputAbsPath, 0755); err != nil {
+		log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", outputAbsPath, err)
+	}
 
 	// Extract tarball
 	file.Seek(0, io.SeekStart)
