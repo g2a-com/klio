@@ -242,27 +242,11 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 	}
 	defer resp.Body.Close()
 
-	buf := make([]byte, 1024)
 	hash := sha256.New()
+	writer := io.MultiWriter(file, hash)
 
-	for true {
-		n, err := resp.Body.Read(buf)
-
-		if n != 0 {
-			if _, err := hash.Write(buf[0:n]); err != nil {
-				return "", err
-			}
-			if _, err := file.Write(buf[0:n]); err != nil {
-				return "", err
-			}
-		}
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return "", err
-		}
+	if _, err = io.Copy(writer, resp.Body); err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf("sha256-%x", hash.Sum(nil)), nil
