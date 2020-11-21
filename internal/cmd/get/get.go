@@ -2,22 +2,24 @@ package get
 
 import (
 	"fmt"
-
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
+	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 )
 
 // Options for a get command
 type options struct {
-	Global  bool
-	NoSave  bool
-	From    string
-	As      string
-	Version string
+	Global      bool
+	NoSave      bool
+	From        string
+	As          string
+	Version     string
+	InitProject bool
 }
 
 // NewCommand creates a new get command
@@ -36,6 +38,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "prevent saving to dependencies")
 	cmd.Flags().StringVar(&opts.From, "from", "", "address of the registry")
 	cmd.Flags().StringVar(&opts.As, "as", "", "changes name under which dependency is installed")
+	cmd.Flags().BoolVar(&opts.InitProject, "init-project", false, "creates config file in current directory")
 	cmd.Flags().StringVar(&opts.Version, "version", "*", "version range of the dependency")
 
 	return cmd
@@ -59,8 +62,17 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		}
 	} else {
 		scope = dependency.ProjectScope
+
+		if opts.InitProject {
+			ctx, err = initialiseProjectInCurrentDir(ctx)
+			if err != nil {
+				log.Fatalf("Failed to initialise project in current dir: %s", err)
+			}
+			depsMgr = dependency.NewManager(ctx)
+		}
+
 		if ctx.Paths.ProjectInstallDir == "" {
-			log.Fatal(`Packages can be installed locally only under project directory, use "--global" option`)
+			log.Fatal(`Packages can be installed locally only under project directory, use "--global" option or initialise project using "go get --init-project"`)
 		}
 		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
 		if err != nil {
@@ -129,4 +141,36 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
 		}
 	}
+}
+
+// initialiseProjectInCurrentDir creates default klio.yaml file in current directory and update context
+func initialiseProjectInCurrentDir(ctx context.CLIContext) (context.CLIContext, error) {
+	// get current directory
+	currentWorkingDirectory, err := os.Getwd()
+	if err != nil {
+		return ctx, err
+	}
+
+	return initialiseProject(ctx, currentWorkingDirectory)
+}
+
+// initialiseProject creates default klio.yaml file in given directory and update context
+func initialiseProject(ctx context.CLIContext, dirPath string) (context.CLIContext, error) {
+	// update context
+	ctx.Paths.ProjectInstallDir = path.Join(dirPath, ctx.Config.InstallDirName)
+	ctx.Paths.ProjectConfigFile = path.Join(dirPath, ctx.Config.ProjectConfigFileName)
+
+	// make sure install dir exists
+	err := os.MkdirAll(ctx.Paths.ProjectInstallDir, 0755)
+	if err != nil {
+		return ctx, err
+	}
+
+	// create and save default klio config
+	_, err = schema.CreateDefaultProjectConfig(ctx.Paths.ProjectConfigFile)
+	if err != nil {
+		return ctx, err
+	}
+
+	return ctx, nil
 }

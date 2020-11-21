@@ -122,6 +122,36 @@ func SaveDependenciesIndex(config *DependenciesIndex) error {
 	return SaveConfigFile(config, config.Meta.Path)
 }
 
+// CreateDefaultProjectConfig creates default ProjectConfig and save it to give path if it's not already there
+func CreateDefaultProjectConfig(filePath string) (*ProjectConfig, error) {
+	// create default ProjectConfig
+	projectConfig, err := NewDefaultProjectConfig()
+	if err != nil {
+		log.Fatalf("Failed to unmarshal default yaml: %s", err)
+	}
+
+	// marshal newly created ProjectConfig
+	marshaledProjectConfig, err := projectConfig.MarshalYAML()
+	if err != nil {
+		log.Fatalf("Failed to marshal: %s", err)
+	}
+
+	// check if file already exists, if so return error
+	_, err = os.Stat(filePath)
+	isFileNotExist := os.IsNotExist(err)
+	if !isFileNotExist {
+		return projectConfig, fmt.Errorf("Failed to create klio.yaml file, it already exists at %s", filePath)
+	}
+
+	// save ProjectConfig
+	err = SaveConfigFile(marshaledProjectConfig, filePath)
+	if err != nil {
+		log.Fatalf("Failed to save file in %s because of: %s", filePath, err)
+	}
+
+	return projectConfig, nil
+}
+
 func validate(data interface{}, dir string) error {
 	cwd, err := os.Getwd()
 	if err != nil {

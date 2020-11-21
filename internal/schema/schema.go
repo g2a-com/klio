@@ -54,6 +54,17 @@ type ProjectConfig struct {
 	yaml            *yaml.Node
 }
 
+func NewDefaultProjectConfig() (*ProjectConfig, error) {
+	projectConfig := ProjectConfig{}
+
+	err := projectConfig.UnmarshalYAML(minimalKlioFile())
+	if err != nil {
+		return &projectConfig, err
+	}
+
+	return &projectConfig, nil
+}
+
 func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 	var defaultRegistryValueNode *yaml.Node
 	var dependenciesValueNode *yaml.Node

@@ -2,7 +2,7 @@ package context
 
 type CLIContext struct {
 	Config CLIConfig
-	Paths  paths
+	Paths  Paths
 }
 
 type CLIConfig struct {
@@ -14,7 +14,7 @@ type CLIConfig struct {
 	DefaultRegistry       string
 }
 
-type paths struct {
+type Paths struct {
 	ProjectConfigFile string
 	ProjectInstallDir string
 	GlobalInstallDir  string
