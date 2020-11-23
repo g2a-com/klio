@@ -10,12 +10,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
 	"github.com/g2a-com/klio/internal/tarball"
+	"github.com/schollz/progressbar/v3"
 )
 
 type ScopeType string
@@ -250,6 +253,14 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 
 	hash := sha256.New()
 	writer := io.MultiWriter(file, hash)
+
+	if terminal.IsTerminal(int(os.Stdout.Fd())) {
+		progress := progressbar.DefaultBytes(
+			resp.ContentLength, // value -1 indicates that the length is unknown
+			"Downloading",
+		)
+		writer = io.MultiWriter(writer, progress)
+	}
 
 	if _, err = io.Copy(writer, resp.Body); err != nil {
 		return "", err
