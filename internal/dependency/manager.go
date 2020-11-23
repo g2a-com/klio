@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
@@ -250,12 +252,15 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 	defer resp.Body.Close()
 
 	hash := sha256.New()
-	progress := progressbar.DefaultBytes(
-		resp.ContentLength, // value -1 indicates that the length is unknown
-		"Downloading",
-	)
+	writer := io.MultiWriter(file, hash)
 
-	writer := io.MultiWriter(file, hash, progress)
+	if terminal.IsTerminal(int(os.Stdout.Fd())) {
+		progress := progressbar.DefaultBytes(
+			resp.ContentLength, // value -1 indicates that the length is unknown
+			"Downloading",
+		)
+		writer = io.MultiWriter(writer, progress)
+	}
 
 	if _, err = io.Copy(writer, resp.Body); err != nil {
 		return "", err
