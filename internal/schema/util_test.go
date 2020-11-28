@@ -14,7 +14,7 @@ func TestCreateDefaultProjectConfig(t *testing.T) {
 		t.Fatalf("can't create temporary directory: %s", err)
 	}
 
-	defaultProjectConfig, _ := NewDefaultProjectConfig()
+	defaultProjectConfig := NewDefaultProjectConfig()
 
 	// create temporary file to test error on existing file
 	existingKlioFileName := "existing-klio.yaml"

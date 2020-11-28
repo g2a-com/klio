@@ -14,12 +14,12 @@ import (
 
 // Options for a get command
 type options struct {
-	Global      bool
-	NoSave      bool
-	From        string
-	As          string
-	Version     string
-	InitProject bool
+	Global  bool
+	NoSave  bool
+	From    string
+	As      string
+	Version string
+	NoInit  bool
 }
 
 // NewCommand creates a new get command
@@ -38,7 +38,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "prevent saving to dependencies")
 	cmd.Flags().StringVar(&opts.From, "from", "", "address of the registry")
 	cmd.Flags().StringVar(&opts.As, "as", "", "changes name under which dependency is installed")
-	cmd.Flags().BoolVar(&opts.InitProject, "init-project", false, "creates config file in current directory")
+	cmd.Flags().BoolVar(&opts.NoInit, "no-init", false, "prevent creating config file if not exist")
 	cmd.Flags().StringVar(&opts.Version, "version", "*", "version range of the dependency")
 
 	return cmd
@@ -63,16 +63,16 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	} else {
 		scope = dependency.ProjectScope
 
-		if opts.InitProject {
+		if !opts.NoInit && ctx.Paths.ProjectInstallDir == "" {
 			ctx, err = initialiseProjectInCurrentDir(ctx)
 			if err != nil {
-				log.Fatalf("Failed to initialise project in current dir: %s", err)
+				log.Fatalf("Failed to initialise project in the current dir: %s", err)
 			}
 			depsMgr = dependency.NewManager(ctx)
 		}
 
 		if ctx.Paths.ProjectInstallDir == "" {
-			log.Fatal(`Packages can be installed locally only under project directory, use "--global" option or initialise project using "go get --init-project"`)
+			log.Fatal(`Packages can be installed locally only under project directory, use "--global"`)
 		}
 		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
 		if err != nil {
