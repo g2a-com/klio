@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 )
 
-func discoverPaths(cfg CLIConfig) paths {
-	result := paths{}
+func discoverPaths(cfg CLIConfig) Paths {
+	result := Paths{}
 	homeDir := getHomeDirPath()
 
 	if homeDir != "" {
