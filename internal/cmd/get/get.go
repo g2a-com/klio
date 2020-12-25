@@ -1,6 +1,7 @@
 package get
 
 import (
+	"errors"
 	"fmt"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
@@ -30,7 +31,10 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 		Short: "Install new commands",
 		Long:  fmt.Sprintf("Get (%s get) will install command to use with %s.", ctx.Config.CommandName, ctx.Config.CommandName),
 		Run: func(cmd *cobra.Command, args []string) {
-			run(ctx, opts, cmd, args)
+			err := run(ctx, opts, cmd, args)
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
@@ -44,7 +48,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []string) {
+func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []string) error {
 	// Find directory for installing packages
 	var projectConfig *schema.ProjectConfig
 	var err error
@@ -55,10 +59,16 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	depsMgr := dependency.NewManager(ctx)
 	depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
 
+	// check if command isn't already registered
+	rootCmd := cmd.Root()
+	if foundCmd, _, _ := rootCmd.Find([]string{opts.As}); foundCmd != rootCmd {
+		return errors.New(fmt.Sprintf("Cannot get already registered command '%s'", opts.As))
+	}
+
 	if opts.Global {
 		scope = dependency.GlobalScope
 		if ctx.Paths.GlobalInstallDir == "" {
-			log.Fatal("Cannot init global install directory")
+			return errors.New("Cannot init global install directory")
 		}
 	} else {
 		scope = dependency.ProjectScope
@@ -66,17 +76,17 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		if !opts.NoInit && ctx.Paths.ProjectInstallDir == "" {
 			ctx, err = initialiseProjectInCurrentDir(ctx)
 			if err != nil {
-				log.Fatalf("Failed to initialise project in the current dir: %s", err)
+				return errors.New(fmt.Sprintf("Failed to initialise project in the current dir: %s", err))
 			}
 			depsMgr = dependency.NewManager(ctx)
 		}
 
 		if ctx.Paths.ProjectInstallDir == "" {
-			log.Fatal(`Packages can be installed locally only under project directory, use "--global"`)
+			return errors.New(`Packages can be installed locally only under project directory, use "--global"`)
 		}
 		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		if registry != "" {
@@ -106,7 +116,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		installedDep, err := depsMgr.InstallDependency(dep, scope)
 
 		if err != nil {
-			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
+			return errors.New(fmt.Sprintf("Failed to install %s@%s: %s", dep.Name, dep.Version, err))
 		} else {
 			if installedDep.Alias == "" {
 				log.Infof("Installed %s@%s from %s", installedDep.Name, installedDep.Version, installedDep.Registry)
@@ -136,11 +146,13 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
 
 		if err := schema.SaveProjectConfig(projectConfig); err != nil {
-			log.Errorf("Unable to update dependencies in the %s file: %s", ctx.Config.ProjectConfigFileName, err)
+			return errors.New(fmt.Sprintf("Unable to update dependencies in the %s file: %s", ctx.Config.ProjectConfigFileName, err))
 		} else {
 			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
 		}
 	}
+
+	return nil
 }
 
 // initialiseProjectInCurrentDir creates default klio.yaml file in current directory and update context
