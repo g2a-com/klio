@@ -1,7 +1,7 @@
 package get
 
 import (
-	"errors"
+	"fmt"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -77,14 +77,12 @@ func Test_initialiseProjectInCurrentDir(t *testing.T) {
 
 func Test_run(t *testing.T) {
 	type args struct {
-		ctx  context.CLIContext
 		opts *options
 		cmd  *cobra.Command
-		args []string
 	}
 	ctx := context.CLIContext{
 		Config: context.CLIConfig{},
-		Paths:  context.Paths{
+		Paths: context.Paths{
 			ProjectConfigFile: path.Join(os.TempDir(), "config.yaml"),
 			ProjectInstallDir: os.TempDir(),
 			GlobalInstallDir:  os.TempDir(),
@@ -102,33 +100,29 @@ func Test_run(t *testing.T) {
 		error error
 	}{
 		{
-			name: "should return error 'Cannot get already registered command 'get''",
+			name: "should return error 'The command 'get' is already registered'",
 			args: args{
-				ctx: ctx,
 				opts: &options{
 					As: "get",
 				},
-				cmd:  &rootCmdWithGet,
-				args: nil,
+				cmd: &rootCmdWithGet,
 			},
-			error: errors.New("Cannot get already registered command 'get'"),
+			error: fmt.Errorf("The command 'get' is already registered"),
 		},
 		{
 			name: "should allow to register command 'get' since it is not registered",
 			args: args{
-				ctx: ctx,
 				opts: &options{
 					As: "get",
 				},
-				cmd:  &emptyCmd,
-				args: nil,
+				cmd: &emptyCmd,
 			},
 			error: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := run(tt.args.ctx, tt.args.opts, tt.args.cmd, tt.args.args)
+			err := run(ctx, tt.args.opts, tt.args.cmd, nil)
 			assert.EqualValues(t, err, tt.error)
 		})
 	}

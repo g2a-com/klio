@@ -1,7 +1,6 @@
 package get
 
 import (
-	"errors"
 	"fmt"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
@@ -62,13 +61,13 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	// check if command isn't already registered
 	rootCmd := cmd.Root()
 	if foundCmd, _, _ := rootCmd.Find([]string{opts.As}); foundCmd != rootCmd {
-		return errors.New(fmt.Sprintf("Cannot get already registered command '%s'", opts.As))
+		return fmt.Errorf("The command '%s' is already registered", opts.As)
 	}
 
 	if opts.Global {
 		scope = dependency.GlobalScope
 		if ctx.Paths.GlobalInstallDir == "" {
-			return errors.New("Cannot init global install directory")
+			return fmt.Errorf("cannot init global install directory")
 		}
 	} else {
 		scope = dependency.ProjectScope
@@ -76,13 +75,13 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		if !opts.NoInit && ctx.Paths.ProjectInstallDir == "" {
 			ctx, err = initialiseProjectInCurrentDir(ctx)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to initialise project in the current dir: %s", err))
+				return fmt.Errorf("failed to initialise project in the current dir: %w", err)
 			}
 			depsMgr = dependency.NewManager(ctx)
 		}
 
 		if ctx.Paths.ProjectInstallDir == "" {
-			return errors.New(`Packages can be installed locally only under project directory, use "--global"`)
+			return fmt.Errorf(`packages can be installed locally only under project directory, use "--global"`)
 		}
 		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
 		if err != nil {
@@ -103,12 +102,12 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		toInstall = projectConfig.Dependencies
 	} else {
 		toInstall = []schema.Dependency{
-			schema.Dependency{
+			{
 				Name:     args[0],
 				Version:  opts.Version,
 				Registry: opts.From,
 				Alias:    opts.As,
-			},
+						},
 		}
 	}
 
@@ -116,7 +115,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		installedDep, err := depsMgr.InstallDependency(dep, scope)
 
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to install %s@%s: %s", dep.Name, dep.Version, err))
+			return fmt.Errorf("Failed to install %s@%s: %w", dep.Name, dep.Version, err)
 		} else {
 			if installedDep.Alias == "" {
 				log.Infof("Installed %s@%s from %s", installedDep.Name, installedDep.Version, installedDep.Registry)
@@ -146,7 +145,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
 
 		if err := schema.SaveProjectConfig(projectConfig); err != nil {
-			return errors.New(fmt.Sprintf("Unable to update dependencies in the %s file: %s", ctx.Config.ProjectConfigFileName, err))
+			return fmt.Errorf("Unable to update dependencies in the %s file: %w", ctx.Config.ProjectConfigFileName, err)
 		} else {
 			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
 		}
