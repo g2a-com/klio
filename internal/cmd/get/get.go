@@ -61,7 +61,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	// check if command isn't already registered
 	rootCmd := cmd.Root()
 	if foundCmd, _, _ := rootCmd.Find([]string{opts.As}); foundCmd != rootCmd {
-		return fmt.Errorf("The command '%s' is already registered", opts.As)
+		return fmt.Errorf("the command '%s' is already registered", opts.As)
 	}
 
 	if opts.Global {
@@ -145,7 +145,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
 
 		if err := schema.SaveProjectConfig(projectConfig); err != nil {
-			return fmt.Errorf("Unable to update dependencies in the %s file: %w", ctx.Config.ProjectConfigFileName, err)
+			return fmt.Errorf("unable to update dependencies in the %s file: %w", ctx.Config.ProjectConfigFileName, err)
 		} else {
 			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
 		}
