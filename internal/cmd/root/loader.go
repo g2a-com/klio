@@ -24,7 +24,7 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep sch
 		return
 	}
 
-	cmdConfig, err := schema.LoadCommandConfig(filepath.Join(dep.Path, "manifest.yaml"))
+	cmdConfig, err := schema.LoadCommandConfig(filepath.Join(dep.Path, "command.yaml"))
 	if err != nil {
 		log.Warnf("Cannot load command: %s", err)
 		return
