@@ -1,21 +1,22 @@
 package registry
 
 import (
+	"io"
 	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strings"
 
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Registry represents some commands registry hosted by Artifactory
 type Registry struct {
-	URL  string
-	data schema.Registry
+	URL        string
+	configFile Config
 }
 
 // New returns new registry instance
@@ -44,30 +45,32 @@ func (reg *Registry) Update() error {
 		if err != nil {
 			return err
 		}
-		defer res.Body.Close()
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(res.Body)
 		buffer, err = ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
 	}
 
-	data := schema.Registry{}
+	data := Config{}
 	if err := yaml.Unmarshal(buffer, &data); err != nil {
 		return err
 	}
-	reg.data = data
+	reg.configFile = data
 
 	return nil
 }
 
-func (reg *Registry) FindCompatibleDependency(dep schema.Dependency) (entry *schema.RegistryEntry) {
-	var result *schema.RegistryEntry
+func (reg *Registry) FindCompatibleDependency(dep dependency.Dependency) (entry *Entry) {
+	var result *Entry
 	var resultVer Version
 
-	for idx, entry := range reg.data.Entries {
+	for idx, entry := range reg.configFile.Entries {
 		ver := Version(entry.Version)
 		if dep.Name == entry.Name && isCompatible(&entry) && ver.Match(dep.Version) && (result == nil || ver.GreaterThan(resultVer) || isMoreSpecific(&entry, result)) {
-			result = &reg.data.Entries[idx]
+			result = &reg.configFile.Entries[idx]
 			resultVer = ver
 		}
 	}
@@ -75,10 +78,10 @@ func (reg *Registry) FindCompatibleDependency(dep schema.Dependency) (entry *sch
 	return result
 }
 
-func isCompatible(entry *schema.RegistryEntry) bool {
+func isCompatible(entry *Entry) bool {
 	return (entry.OS == runtime.GOOS || entry.OS == "") && (entry.Arch == runtime.GOARCH || entry.Arch == "")
 }
 
-func isMoreSpecific(entry1 *schema.RegistryEntry, entry2 *schema.RegistryEntry) bool {
+func isMoreSpecific(entry1 *Entry, entry2 *Entry) bool {
 	return (entry1.OS != "" && entry2.OS == "") || (entry1.Arch != "" && entry2.Arch == "")
 }

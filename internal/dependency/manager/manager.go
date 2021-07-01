@@ -1,4 +1,4 @@
-package dependency
+package manager
 
 import (
 	"crypto/sha256"
@@ -13,10 +13,10 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
 	"github.com/g2a-com/klio/internal/tarball"
 	"github.com/schollz/progressbar/v3"
 )
@@ -45,7 +45,7 @@ func NewManager(ctx context.CLIContext) *Manager {
 	}
 }
 
-func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
+func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Initialize registry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
 		if mgr.registries == nil {
@@ -58,14 +58,14 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 	}
 
 	// Find versions
-	registry := mgr.registries[dep.Registry]
+	reg := mgr.registries[dep.Registry]
 
-	nonBreaking := registry.FindCompatibleDependency(schema.Dependency{
+	nonBreaking := reg.FindCompatibleDependency(dependency.Dependency{
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  fmt.Sprintf("> %s, ^ %s", dep.Version, dep.Version),
 	})
-	breaking := registry.FindCompatibleDependency(schema.Dependency{
+	breaking := reg.FindCompatibleDependency(dependency.Dependency{
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  "> " + dep.Version,
@@ -84,7 +84,7 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 	return updates, nil
 }
 
-func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*schema.Dependency, error) {
+func (mgr *Manager) InstallDependency(dep dependency.Dependency, scope ScopeType) (*dependency.Dependency, error) {
 	installDir, err := mgr.getInstallDir(scope)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,9 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(file.Name())
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(file.Name())
 
 	// Download tarball
 	checksum, err := downloadFile(entry.URL, file)
@@ -154,7 +156,7 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	outputRelPath := filepath.Join("dependencies", checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
 	if _, err := os.Stat(outputAbsPath); err == nil {
-		os.RemoveAll(outputAbsPath)
+		_ = os.RemoveAll(outputAbsPath)
 	} else if !os.IsNotExist(err) {
 		log.LogfAndExit(log.FatalLevel, "unable to remove directory: %s due to %s", outputAbsPath, err)
 	}
@@ -163,23 +165,23 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	}
 
 	// Extract tarball
-	file.Seek(0, io.SeekStart)
+	_, _ = file.Seek(0, io.SeekStart)
 	if err := tarball.Extract(file, outputAbsPath); err != nil {
 		return nil, err
 	}
 
 	// Add dependency to dependencies.json
-	index, err := schema.LoadDependenciesIndex(indexPath)
+	index, err := dependency.LoadIndex(indexPath)
 	if err != nil {
 		return nil, err
 	}
-	newEntries := make([]schema.DependenciesIndexEntry, 0, len(index.Entries))
+	newEntries := make([]dependency.DependenciesIndexEntry, 0, len(index.Entries))
 	for _, entry := range index.Entries {
 		if entry.Alias != dep.Alias {
 			newEntries = append(newEntries, entry)
 		}
 	}
-	newEntries = append(newEntries, schema.DependenciesIndexEntry{
+	newEntries = append(newEntries, dependency.DependenciesIndexEntry{
 		Alias:    dep.Alias,
 		Registry: dep.Registry,
 		Name:     dep.Name,
@@ -190,12 +192,12 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 		Path:     outputRelPath,
 	})
 	index.Entries = newEntries
-	if err := schema.SaveDependenciesIndex(index); err != nil {
+	if err := dependency.SaveIndex(index); err != nil {
 		return nil, err
 	}
 
 	// Release lock
-	lock.Release(indexLockfilePath)
+	_ = lock.Release(indexLockfilePath)
 
 	// Return info about installed dependency
 	result := dep
@@ -205,20 +207,20 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	return &result, nil
 }
 
-func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]schema.DependenciesIndexEntry, error) {
+func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]dependency.DependenciesIndexEntry, error) {
 	installDir, err := mgr.getInstallDir(scope)
 	if err != nil {
-		return []schema.DependenciesIndexEntry{}, err
+		return []dependency.DependenciesIndexEntry{}, err
 	}
 
 	indexPath := filepath.Join(installDir, "dependencies.json")
-	indexData, err := schema.LoadDependenciesIndex(indexPath)
+	indexData, err := dependency.LoadIndex(indexPath)
 	if err != nil {
-		return []schema.DependenciesIndexEntry{}, err
+		return []dependency.DependenciesIndexEntry{}, err
 	}
 
 	// dependencies.json contains relative paths for commands, make them absolute
-	for idx, _ := range indexData.Entries {
+	for idx := range indexData.Entries {
 		indexData.Entries[idx].Path = filepath.Join(installDir, indexData.Entries[idx].Path)
 	}
 
@@ -249,7 +251,9 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	hash := sha256.New()
 	writer := io.MultiWriter(file, hash)

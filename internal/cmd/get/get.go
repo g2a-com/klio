@@ -2,14 +2,16 @@ package get
 
 import (
 	"fmt"
-	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
-	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
+	"github.com/g2a-com/klio/internal/dependency/manager"
 	"os"
 	"path"
 
 	"github.com/spf13/cobra"
+
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/pkg/project"
 )
 
 // Options for a get command
@@ -44,37 +46,37 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []string) {
+func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string) {
 	// Find directory for installing packages
-	var projectConfig *schema.ProjectConfig
+	var projectConfig project.Project
 	var err error
-	var scope dependency.ScopeType
-	var installedDeps []schema.Dependency
+	var scope manager.ScopeType
+	var installedDeps []dependency.Dependency
 	var registry string
 
-	depsMgr := dependency.NewManager(ctx)
+	depsMgr := manager.NewManager(ctx)
 	depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
 
 	if opts.Global {
-		scope = dependency.GlobalScope
+		scope = manager.GlobalScope
 		if ctx.Paths.GlobalInstallDir == "" {
 			log.Fatal("Cannot init global install directory")
 		}
 	} else {
-		scope = dependency.ProjectScope
+		scope = manager.ProjectScope
 
 		if !opts.NoInit && ctx.Paths.ProjectInstallDir == "" {
 			ctx, err = initialiseProjectInCurrentDir(ctx)
 			if err != nil {
 				log.Fatalf("Failed to initialise project in the current dir: %s", err)
 			}
-			depsMgr = dependency.NewManager(ctx)
+			depsMgr = manager.NewManager(ctx)
 		}
 
 		if ctx.Paths.ProjectInstallDir == "" {
 			log.Fatal(`Packages can be installed locally only under project directory, use "--global"`)
 		}
-		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
+		projectConfig, err = project.LoadConfig(ctx.Paths.ProjectConfigFile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -82,18 +84,18 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 		if registry != "" {
 			registry = opts.From
 		}
-		if projectConfig.DefaultRegistry != "" {
-			depsMgr.DefaultRegistry = projectConfig.DefaultRegistry
+		if r := projectConfig.GetDefaultRegistry(); projectConfig.GetDefaultRegistry() != "" {
+			depsMgr.DefaultRegistry = r
 		}
 	}
 
-	var toInstall []schema.Dependency
+	var toInstall []dependency.Dependency
 
 	if len(args) == 0 && !opts.Global {
-		toInstall = projectConfig.Dependencies
+		toInstall = projectConfig.GetDependencies()
 	} else {
-		toInstall = []schema.Dependency{
-			schema.Dependency{
+		toInstall = []dependency.Dependency{
+			{
 				Name:     args[0],
 				Version:  opts.Version,
 				Registry: opts.From,
@@ -121,21 +123,21 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	if !opts.Global && !opts.NoSave {
 		for _, installedDep := range installedDeps {
 			var idx int
-			for idx = 0; idx < len(projectConfig.Dependencies); idx++ {
-				if projectConfig.Dependencies[idx].Alias == installedDep.Alias {
+			for idx = 0; idx < len(projectConfig.GetDependencies()); idx++ {
+				if projectConfig.GetDependencies()[idx].Alias == installedDep.Alias {
 					break
 				}
 			}
-			if idx != len(projectConfig.Dependencies) {
-				projectConfig.Dependencies[idx] = installedDep
+			if idx != len(projectConfig.GetDependencies()) {
+				projectConfig.GetDependencies()[idx] = installedDep
 			} else {
-				projectConfig.Dependencies = append(projectConfig.Dependencies, installedDep)
+				projectConfig.SetDependencies(append(projectConfig.GetDependencies(), installedDep))
 			}
 		}
 
-		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
+		projectConfig.SetDefaultRegistry(depsMgr.DefaultRegistry)
 
-		if err := schema.SaveProjectConfig(projectConfig); err != nil {
+		if err := projectConfig.SaveConfig(); err != nil {
 			log.Errorf("Unable to update dependencies in the %s file: %s", ctx.Config.ProjectConfigFileName, err)
 		} else {
 			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
@@ -167,7 +169,7 @@ func initialiseProject(ctx context.CLIContext, dirPath string) (context.CLIConte
 	}
 
 	// create and save default klio config
-	_, err = schema.CreateDefaultProjectConfig(ctx.Paths.ProjectConfigFile)
+	_, err = project.CreateDefaultConfig(ctx.Paths.ProjectConfigFile)
 	if err != nil {
 		return ctx, err
 	}
