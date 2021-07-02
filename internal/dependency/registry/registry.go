@@ -1,22 +1,21 @@
 package registry
 
 import (
-	"io"
 	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strings"
 
-	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/internal/schema"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Registry represents some commands registry hosted by Artifactory
 type Registry struct {
-	URL        string
-	configFile Config
+	URL  string
+	data schema.Registry
 }
 
 // New returns new registry instance
@@ -45,32 +44,30 @@ func (reg *Registry) Update() error {
 		if err != nil {
 			return err
 		}
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(res.Body)
+		defer res.Body.Close()
 		buffer, err = ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
 	}
 
-	data := Config{}
+	data := schema.Registry{}
 	if err := yaml.Unmarshal(buffer, &data); err != nil {
 		return err
 	}
-	reg.configFile = data
+	reg.data = data
 
 	return nil
 }
 
-func (reg *Registry) FindCompatibleDependency(dep dependency.Dependency) (entry *Entry) {
-	var result *Entry
+func (reg *Registry) FindCompatibleDependency(dep schema.Dependency) (entry *schema.RegistryEntry) {
+	var result *schema.RegistryEntry
 	var resultVer Version
 
-	for idx, entry := range reg.configFile.Entries {
+	for idx, entry := range reg.data.Entries {
 		ver := Version(entry.Version)
 		if dep.Name == entry.Name && isCompatible(&entry) && ver.Match(dep.Version) && (result == nil || ver.GreaterThan(resultVer) || isMoreSpecific(&entry, result)) {
-			result = &reg.configFile.Entries[idx]
+			result = &reg.data.Entries[idx]
 			resultVer = ver
 		}
 	}
@@ -78,10 +75,10 @@ func (reg *Registry) FindCompatibleDependency(dep dependency.Dependency) (entry 
 	return result
 }
 
-func isCompatible(entry *Entry) bool {
+func isCompatible(entry *schema.RegistryEntry) bool {
 	return (entry.OS == runtime.GOOS || entry.OS == "") && (entry.Arch == runtime.GOARCH || entry.Arch == "")
 }
 
-func isMoreSpecific(entry1 *Entry, entry2 *Entry) bool {
+func isMoreSpecific(entry1 *schema.RegistryEntry, entry2 *schema.RegistryEntry) bool {
 	return (entry1.OS != "" && entry2.OS == "") || (entry1.Arch != "" && entry2.Arch == "")
 }

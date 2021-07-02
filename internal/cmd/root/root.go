@@ -1,12 +1,12 @@
 package root
 
 import (
-	"github.com/g2a-com/klio/internal/dependency/manager"
 	"os"
 	"strings"
 
 	getCommand "github.com/g2a-com/klio/internal/cmd/get"
 	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +27,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	// logging level before executing command, so Parse() needs to be called here
 	// manually. As far as I checked, this doesn't interfere with cobra parsing
 	// rest of the flags later on.
-	_ = cmd.PersistentFlags().Parse(os.Args)
+	cmd.PersistentFlags().Parse(os.Args)
 
 	// Set log level. In order to pass log level to installed subcommands we need
 	// set env variable as well.
@@ -42,12 +42,12 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	}
 
 	// Discover commands
-	depsMgr := manager.NewManager(ctx)
-	globalCommands, err := depsMgr.GetInstalledCommands(manager.GlobalScope)
+	depsMgr := dependency.NewManager(ctx)
+	globalCommands, err := depsMgr.GetInstalledCommands(dependency.GlobalScope)
 	if err != nil {
 		log.Verbose(err)
 	}
-	projectCommands, err := depsMgr.GetInstalledCommands(manager.ProjectScope)
+	projectCommands, err := depsMgr.GetInstalledCommands(dependency.ProjectScope)
 	if err != nil {
 		log.Verbose(err)
 	}
