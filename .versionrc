@@ -1,0 +1,11 @@
+{
+  "prerelease": "beta",
+  "packageFiles": [],
+  "bumpFiles": [
+    {
+      "filename": "VERSION",
+      "type": "plain-text"
+    }
+  ]
+}
+
