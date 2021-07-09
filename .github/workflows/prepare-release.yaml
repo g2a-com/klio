@@ -14,14 +14,13 @@ jobs:
     - name: Get version
       id: get-version
       run: |
-        echo $(cat VERSION)
         echo ::set-output name=version::$(cat VERSION)
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v3
       with:
         body: ""
-        branch: "release/v${{steps.get-version.outcome.version}}"
-        commit-message: "chore(release): ${{steps.get-version.outcome.version}}"
+        branch: "release/v${{steps.get-version.outputs.version}}"
+        commit-message: "chore(release): ${{steps.get-version.outputs.version}}"
         delete-branch: true
         title: "Release v${{steps.get-version.outcome.version}}"
