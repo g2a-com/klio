@@ -6,6 +6,10 @@
       "filename": "VERSION",
       "type": "plain-text"
     }
-  ]
+  ],
+  "skip": {
+    "tag": true,
+    "commit": true
+  }
 }
 
