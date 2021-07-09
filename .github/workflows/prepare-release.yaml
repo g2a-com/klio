@@ -23,4 +23,4 @@ jobs:
         branch: "release/v${{steps.get-version.outputs.version}}"
         commit-message: "chore(release): ${{steps.get-version.outputs.version}}"
         delete-branch: true
-        title: "Release v${{steps.get-version.outcome.version}}"
+        title: "Release v${{steps.get-version.outputs.version}}"
