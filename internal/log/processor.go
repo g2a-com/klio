@@ -1,47 +1,57 @@
 package log
 
 import (
-	"fmt"
 	"bufio"
-	"strings"
-	"io"
 	"encoding/json"
+	"fmt"
+	"io"
+	"strings"
 )
 
 type Mode string
 
-const LineMode = "line"
-const RawMode = "raw"
+const (
+	lineMode Mode = "line"
+	rawMode  Mode = "raw"
 
-type LogProcessor struct {
+	controlRune = '\033'
+
+	EscapeMarkerMode     = "klio_mode"
+	EscapeMarkerLogLevel = "klio_log_level"
+	EscapeMarkerTags     = "klio_tags"
+	EscapeMarkerReset    = "klio_reset"
+)
+
+type Processor struct {
 	DefaultLevel Level
-	DefaultMode Mode
-	Input io.Reader
-	Logger *Logger
+	DefaultMode  Mode
+	Input        io.Reader
+	Logger       *Logger
 }
 
-func NewLogProcessor() *LogProcessor {
-	return &LogProcessor{
+func NewLogProcessor() *Processor {
+	return &Processor{
+
 		DefaultLevel: InfoLevel,
-		DefaultMode: LineMode,
+		DefaultMode:  lineMode,
 	}
 }
 
-func (lp *LogProcessor) Process() {
+func (lp *Processor) Process() {
 	scanner := bufio.NewScanner(lp.Input)
 	scanner.Split(scanLinesAndKlioEscCodes)
 
 	level := lp.DefaultLevel
-	tags := []string{}
+	var tags []string
 	line := ""
 	mode := lp.DefaultMode
 
-	flush := func () {
+	flush := func() {
 		if line != "" {
 			lp.Logger.Println(&Message{
 				Level: level,
-				Tags: tags,
-				Text: line,
+				Tags:  tags,
+				Text:  line,
 			})
 			line = ""
 		}
@@ -50,62 +60,63 @@ func (lp *LogProcessor) Process() {
 	for scanner.Scan() {
 		chunk := scanner.Text()
 
-		if mode == RawMode && !isEscCode(chunk) {
-			lp.Logger.Output.Write([]byte(chunk))
+		if mode == rawMode && !isEscCode(chunk) {
+			_, _ = lp.Logger.Output.Write([]byte(chunk))
 			continue
 		}
 
 		switch {
-			case isEscCode(chunk):
-				cmd, args, err := parseEscCode(chunk)
-				if err != nil {
-					Spamf("Failed to parse esc sequence while processing logs: %s", err)
-					continue
-				}
+		case isEscCode(chunk):
+			cmd, args, err := parseEscCode(chunk)
+			if err != nil {
+				Spamf("Failed to parse esc sequence while processing logs: %s", err)
+				continue
+			}
 
-				// When in raw mode, ignore all commands except mode change
-				if mode == RawMode && cmd != "klio_mode" {
-					continue
-				}
+			// When in raw mode, ignore all commands except mode change
 
-				switch cmd {
-				case "klio_log_level":
-					newLevel, ok := LevelsByName[args[0]]
-					if ok {
-						if newLevel != level {
-							flush()
-							level = newLevel
-						}
-					} else {
-						Spamf("Failed to parse esc sequence while processing logs: invalid log level: %s", args[0])
-					}
-				case "klio_tags":
-					newTags := args
-					if !equalStringSlices(newTags, tags) {
+			if mode == rawMode && cmd != EscapeMarkerMode {
+				continue
+			}
+
+			switch cmd {
+			case EscapeMarkerLogLevel:
+				newLevel, ok := LevelsByName[args[0]]
+				if ok {
+					if newLevel != level {
 						flush()
-						tags = newTags
+						level = newLevel
 					}
-				case "klio_reset":
-					if len(tags) == 0 || level != lp.DefaultLevel {
-						flush()
-						level = lp.DefaultLevel
-						tags = []string{}
-					}
-				case "klio_mode":
-					newMode := Mode(args[0])
-					if newMode == LineMode || newMode == RawMode {
-						if newMode != mode {
-							flush()
-						}
-						mode = newMode
-					} else {
-						Spamf("Failed to parse esc sequence while processing logs: invalid log mode: %s", args[0])
-					}
+				} else {
+					Spamf("Failed to parse esc sequence while processing logs: invalid log level: %s", args[0])
 				}
-			case chunk == "\n":
-				flush()
-			default:
-				line += chunk
+			case EscapeMarkerTags:
+				newTags := args
+				if !equalStringSlices(newTags, tags) {
+					flush()
+					tags = newTags
+				}
+			case EscapeMarkerReset:
+				if len(tags) == 0 || level != lp.DefaultLevel {
+					flush()
+					level = lp.DefaultLevel
+					tags = []string{}
+				}
+			case EscapeMarkerMode:
+				newMode := Mode(args[0])
+				if newMode == lineMode || newMode == rawMode {
+					if newMode != mode {
+						flush()
+					}
+					mode = newMode
+				} else {
+					Spamf("Failed to parse esc sequence while processing logs: invalid log mode: %s", args[0])
+				}
+			}
+		case chunk == "\n":
+			flush()
+		default:
+			line += chunk
 		}
 	}
 
@@ -117,8 +128,6 @@ func (lp *LogProcessor) Process() {
 }
 
 func scanLinesAndKlioEscCodes(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	//Spamf("scan-chunk (atEOF %t): '%s'", atEOF, data)
-
 	if len(data) == 0 {
 		return 0, nil, nil
 	}
@@ -127,10 +136,10 @@ func scanLinesAndKlioEscCodes(data []byte, atEOF bool) (advance int, token []byt
 		return 1, data[0:1], nil
 	}
 
-	if data[0] == '\033' {
+	if data[0] == controlRune {
 		if len(data) == 1 {
 			if atEOF {
-				return 1, data[0: 1], nil
+				return 1, data[0:1], nil
 			} else {
 				return 0, nil, nil
 			}
@@ -141,8 +150,8 @@ func scanLinesAndKlioEscCodes(data []byte, atEOF bool) (advance int, token []byt
 		}
 
 		for idx := 1; idx < len(data); idx++ {
-			if data[idx-1] == '\033' && data[idx] == '\\'{
-				return idx + 1, data[0:idx+1], nil
+			if data[idx-1] == controlRune && data[idx] == '\\' {
+				return idx + 1, data[0 : idx+1], nil
 			}
 		}
 
@@ -151,20 +160,20 @@ func scanLinesAndKlioEscCodes(data []byte, atEOF bool) (advance int, token []byt
 
 	// Return all data until next ESC or \n
 	for idx, chr := range data {
-		if chr == '\033' || chr == '\n' {
-		  return idx, data[0:idx], nil
+		if chr == controlRune || chr == '\n' {
+			return idx, data[0:idx], nil
 		}
 	}
 
 	return len(data), data, nil
 }
 
-func parseEscCode (code string) (cmd string, args []string, err error) {
+func parseEscCode(code string) (cmd string, args []string, err error) {
 	parts := strings.SplitN(code[2:len(code)-2], " ", 2)
 	cmd = parts[0]
 
 	switch cmd {
-	case "klio_log_level":
+	case EscapeMarkerLogLevel:
 		if len(parts) < 2 {
 			return cmd, args, fmt.Errorf("%s requires an argument", cmd)
 		}
@@ -174,8 +183,8 @@ func parseEscCode (code string) (cmd string, args []string, err error) {
 			return cmd, args, err
 		}
 
-		return cmd, []string{ arg }, nil
-	case "klio_tags":
+		return cmd, []string{arg}, nil
+	case EscapeMarkerTags:
 		if len(parts) < 2 {
 			return cmd, args, fmt.Errorf("%s requires an argument", cmd)
 		}
@@ -185,13 +194,13 @@ func parseEscCode (code string) (cmd string, args []string, err error) {
 		}
 
 		return cmd, args, nil
-	case "klio_reset":
+	case EscapeMarkerReset:
 		if len(parts) > 1 {
 			return cmd, args, fmt.Errorf("%s doesn't accept arguments", cmd)
 		}
 
 		return cmd, args, nil
-	case "klio_mode":
+	case EscapeMarkerMode:
 		if len(parts) < 2 {
 			return cmd, args, fmt.Errorf("%s requires an argument", cmd)
 		}
@@ -201,14 +210,15 @@ func parseEscCode (code string) (cmd string, args []string, err error) {
 			return cmd, args, err
 		}
 
-		return cmd, []string{ arg }, nil
+		return cmd, []string{arg}, nil
 	}
 
 	return cmd, args, fmt.Errorf("%s is not supported", cmd)
 }
 
-func isEscCode (code string) bool {
-	return strings.HasPrefix(code, "\033_klio") && strings.HasSuffix(code, "\033\\")
+func isEscCode(code string) bool {
+	return strings.HasPrefix(code, fmt.Sprintf("%c_klio", controlRune)) &&
+		strings.HasSuffix(code, fmt.Sprintf("%c\\", controlRune))
 }
 
 func equalStringSlices(a, b []string) bool {

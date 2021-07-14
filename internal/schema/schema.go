@@ -54,7 +54,7 @@ type ProjectConfig struct {
 	yaml            *yaml.Node
 }
 
-func NewDefaultProjectConfig() (*ProjectConfig) {
+func NewDefaultProjectConfig() *ProjectConfig {
 	projectConfig := ProjectConfig{}
 
 	_ = projectConfig.UnmarshalYAML(minimalKlioFile())
