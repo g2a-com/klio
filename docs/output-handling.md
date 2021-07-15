@@ -1,19 +1,19 @@
 # Output handling
 
-For CLI tools printing things to a terminal is the essential way to communicate with a user. Klio
-aims to make it easier for you to implement this mode of communication without using
-language-specific frameworks.
+For CLI tools printing output to a terminal is the basic way to communicate with a user. Klio
+aims to make it easier for you to implement this mode of communication without using any
+language-specific framework.
 
-Each command run by Klio may write either to stdout or stderr. By default, Klio captures these
-outputs and processes them line by line by prefixing lines with a log-level. You can control how
-outputs are handled by writing special control sequences which are interpreted by Klio.
+Each command run by Klio may write output either to stdout or stderr. By default, Klio captures those
+streams and processes them line by line. Each line is prefixed with a log-level. You can control how command
+output is handled within Klio by prepending it with special control sequences.
 
-This default mode of processing outputs is called "line mode." There is also an alternative raw mode
-that disables most of the output processing and simply passes things through.
+This default mode of processing outputs is called 'line mode'. There is also an alternative - 'raw mode'.
+It disables most of the output processing and simply passes things through.
 
 ## Controlling output using escape sequences
 
-A command can control how its output is handled by sending [ANSI escape codes][]. Klio uses APC
+A command can control how its output is handled using [ANSI escape codes][]. Klio uses APC
 sequences that are stripped from the output by most of the terminal emulators. Each such escape
 sequence has the following format:
 
@@ -24,28 +24,28 @@ sequence has the following format:
 Keep in mind that each stream (stdout and stderr) is handled separately. Sending control sequence to
 stdout is not going to affect stderr.
 
-A more detailed description of this format is placed
-[at the end of this document](#escape-sequences-grammar). But if you don't want to dive into the
+A more detailed description of this format is available
+[at the end of this document](#escape-sequences-grammar). If you don't want to dive into the
 nitty-gritty details of grammar, simply follow the examples or use one of the libraries.
 
 ## Line mode
 
-By default, Klio is working in this mode. In the line mode each line is prefixed with log level and
+By default, Klio is working in the line mode, in which each line is prefixed with log level and
 tags:
 
 ```text
 [INFO][TAG][ANOTHER TAG] original output printed by command
 ```
 
-Lines that have log-level lower than minimum specified by the user (by default info) are stripped
+Lines that have a log-level lower than a minimum specified by a user ('info' by default) are stripped
 from the output.
 
 ### Log levels
 
-Klio assigns each line with a log level. If you don't change it, by default, all lines printed to
-the stdout have the "info" level and lines printed to the stderr have the "error" level. You may
-change log level by sending `klio_log_level` command, but you have to use one of the following log
-levels:
+Klio assigns each line a log level. If you don't set it explicitly, by default, all lines printed to
+the stdout are marked with the 'info' level and lines printed to the stderr are marked with the 'error' level.
+You may change log level by sending `klio_log_level` command. You have one of the following log levels
+to pick from:
 
 | Log level | Description                                                                              |
 | --------- | ---------------------------------------------------------------------------------------- |
@@ -64,7 +64,7 @@ levels:
 
 ### Tags
 
-Using `klio_tags` command you may specify multiple tags which will be added to each line. You may
+Using `klio_tags` command you may specify multiple tags which will be added to each log line. You may
 use these tags to distinguish various steps of command execution.
 
 **Examples**
@@ -74,9 +74,9 @@ use these tags to distinguish various steps of command execution.
 
 ## Raw mode
 
-Raw mode neither buffers nor modifies output, it simply passes it through unchanged. Use it if you
-want to implement some spinner, progress bar or even [text-based user interface][]. In order to
-enable raw mode, use `klio_mode` command.
+Raw mode neither buffers nor modifies output. It simply passes it further unchanged. Use it if you
+want to implement a spinner, a progress bar or even [a text-based user interface][]. In order to
+enable the raw mode, use `klio_mode` command.
 
 **Examples**
 
