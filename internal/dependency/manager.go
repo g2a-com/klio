@@ -146,9 +146,6 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	if entry.Checksum != "" && entry.Checksum != checksum {
 		return nil, fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, entry.Checksum)
 	}
-	if dep.Checksum != "" && dep.Checksum != checksum {
-		return nil, fmt.Errorf(`checksum of the archive (%s) is different than expected (%s)`, checksum, dep.Checksum)
-	}
 
 	// Make sure that output dir exists and is empty
 	outputRelPath := filepath.Join("dependencies", checksum)
@@ -200,7 +197,6 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	// Return info about installed dependency
 	result := dep
 	result.Version = entry.Version
-	result.Checksum = checksum
 
 	return &result, nil
 }
