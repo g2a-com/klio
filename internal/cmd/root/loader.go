@@ -47,47 +47,30 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep sch
 
 			var wg sync.WaitGroup
 
-			if cmdConfig.APIVersion == "g2a-cli/v1beta1" {
+			switch cmdConfig.APIVersion {
+			case "g2a-cli/v1beta1":
 				externalCmd.Stdout = os.Stdout
 				externalCmd.Stderr = os.Stderr
-			} else {
-				stdoutPipe, err := externalCmd.StdoutPipe()
-				if err != nil {
-					log.Fatal(err)
-				}
-				stderrPipe, err := externalCmd.StderrPipe()
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				wg.Add(1)
-				stdoutLogProcessor := log.NewLogProcessor()
-				stdoutLogProcessor.DefaultLevel = log.InfoLevel
-				stdoutLogProcessor.Input = stdoutPipe
-				stdoutLogProcessor.Logger = log.DefaultLogger
-				go func() {
-					stdoutLogProcessor.Process()
-					wg.Done()
-				}()
-
-				wg.Add(1)
-				stderrLogProcessor := log.NewLogProcessor()
-				stderrLogProcessor.DefaultLevel = log.ErrorLevel
-				stderrLogProcessor.Input = stderrPipe
-				stderrLogProcessor.Logger = log.ErrorLogger
-				go func() {
-					stderrLogProcessor.Process()
-					wg.Done()
-				}()
+			case "klio/v1":
+				setupLogProcessor(externalCmd, &wg)
+			default:
+				log.Warnf(
+					"Cannot load command %s since it requires an unsupported API Version to run (%s). Try to update the %s and try again.",
+					dep.Alias,
+					cmdConfig.APIVersion,
+					ctx.Config.CommandName,
+				)
+				return
 			}
 
 			updateMsgChannel := make(chan string, 1)
+			go getUpdateMessage(ctx, dep, global, updateMsgChannel)
+
 			timeoutChannel := make(chan bool, 1)
 			go func() {
 				time.Sleep(5 * time.Second)
 				timeoutChannel <- true
 			}()
-			go getUpdateMessage(ctx, dep, global, updateMsgChannel)
 
 			log.Debugf(`Running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
 
@@ -155,4 +138,35 @@ func getUpdateMessage(ctx context.CLIContext, dep schema.DependenciesIndexEntry,
 	} else {
 		msg <- fmt.Sprintf("New version of this command is available, but it may introduce some BREAKING CHANGES. Please consider updating it using:\n    %s", getInstallCmd(update.Breaking))
 	}
+}
+
+func setupLogProcessor(cmd *exec.Cmd, wg *sync.WaitGroup) {
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	wg.Add(1)
+	stdoutLogProcessor := log.NewLogProcessor()
+	stdoutLogProcessor.DefaultLevel = log.InfoLevel
+	stdoutLogProcessor.Input = stdoutPipe
+	stdoutLogProcessor.Logger = log.DefaultLogger
+	go func() {
+		stdoutLogProcessor.Process()
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	stderrLogProcessor := log.NewLogProcessor()
+	stderrLogProcessor.DefaultLevel = log.ErrorLevel
+	stderrLogProcessor.Input = stderrPipe
+	stderrLogProcessor.Logger = log.ErrorLogger
+	go func() {
+		stderrLogProcessor.Process()
+		wg.Done()
+	}()
 }
