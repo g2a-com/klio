@@ -44,5 +44,7 @@ jobs:
       - name: Build
         run: go build -v ./cmd/klio/...
 
-      - name: Test
-        run: go test -v ./...
+      - name: Test & Coverage
+        run:
+          go test -v ./... -covermode=atomic -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out -o=coverage.html
