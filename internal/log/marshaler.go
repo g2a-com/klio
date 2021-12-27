@@ -1,9 +1,10 @@
 package log
 
 import (
+	"errors"
 	"fmt"
 	"strings"
-	"errors"
+
 	"github.com/kataras/pio"
 )
 
@@ -11,16 +12,16 @@ type messageMarshaler struct {
 	SupportColors bool
 }
 
-func newMarshaler (supportColors bool) messageMarshaler {
+func newMarshaler(supportColors bool) messageMarshaler {
 	return messageMarshaler{
 		SupportColors: supportColors,
 	}
 }
 
-func(m messageMarshaler) Marshal (data interface{}) ([]byte, error) {
+func (m messageMarshaler) Marshal(data interface{}) ([]byte, error) {
 	msg, ok := data.(*Message)
 
-	if (!ok) {
+	if !ok {
 		return []byte{}, errors.New("not a *Message")
 	}
 
@@ -49,4 +50,3 @@ func(m messageMarshaler) Marshal (data interface{}) ([]byte, error) {
 
 	return []byte(text), nil
 }
-

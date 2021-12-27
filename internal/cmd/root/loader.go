@@ -1,8 +1,6 @@
 package root
 
 import (
-	"time"
-
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
@@ -17,6 +16,8 @@ import (
 	"github.com/g2a-com/klio/internal/schema"
 	"github.com/spf13/cobra"
 )
+
+const fiveSeconds = 5 * time.Second
 
 func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep schema.DependenciesIndexEntry, global bool) {
 	if cmd, _, _ := rootCmd.Find([]string{dep.Alias}); cmd != rootCmd {
@@ -68,7 +69,7 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep sch
 
 			timeoutChannel := make(chan bool, 1)
 			go func() {
-				time.Sleep(5 * time.Second)
+				time.Sleep(fiveSeconds)
 				timeoutChannel <- true
 			}()
 

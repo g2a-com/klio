@@ -8,10 +8,12 @@ import (
 // Following functions are based on golog default logging methods:
 // https://github.com/kataras/golog/blob/master/golog.go
 
-var DefaultLogger = NewLogger(os.Stdout)
-var ErrorLogger = NewLogger(os.Stderr)
+var (
+	DefaultLogger = NewLogger(os.Stdout)
+	ErrorLogger   = NewLogger(os.Stderr)
+)
 
-// SetLevel sets minimum level for logs, logs with level above specified value will not be printed
+// SetLevel sets minimum level for logs, logs with level above specified value will not be printed.
 func SetLevel(levelName string) {
 	level, ok := LevelsByName[levelName]
 	if ok {
@@ -28,22 +30,22 @@ func SetLevel(levelName string) {
 // 	logger.SetOutput(w)
 // }
 
-// GetDefaultLevel returns default logging level name
+// GetDefaultLevel returns default logging level name.
 func GetDefaultLevel() string {
 	return levels[DefaultLevel].Name
 }
 
-// SetLevelFromEnv sets minimum level for logs based on environment variables
+// SetLevelFromEnv sets minimum level for logs based on environment variables.
 func SetLevelFromEnv() {
 	SetLevel(os.Getenv("KLIO_CLI_LOG_LEVEL"))
 }
 
-// GetLevel returns current logging level name
+// GetLevel returns current logging level name.
 func GetLevel() string {
 	return levels[DefaultLogger.Level].Name
 }
 
-// IncreaseLevel changes current level by specified number
+// IncreaseLevel changes current level by specified number.
 func IncreaseLevel(levels int) {
 	if DefaultLogger.Level+Level(levels) > MaxLevel {
 		DefaultLogger.Level = MaxLevel
@@ -151,7 +153,7 @@ func Spamf(format string, args ...interface{}) {
 	Logf(SpamLevel, format, args...)
 }
 
-// Log prints message with specified level
+// Log prints message with specified level.
 func Log(level Level, v ...interface{}) {
 	DefaultLogger.Println(&Message{
 		Level: level,
@@ -159,7 +161,7 @@ func Log(level Level, v ...interface{}) {
 	})
 }
 
-// Logf prints message with specified level
+// Logf prints message with specified level.
 func Logf(level Level, format string, args ...interface{}) {
 	DefaultLogger.Println(&Message{
 		Level: level,
@@ -167,14 +169,14 @@ func Logf(level Level, format string, args ...interface{}) {
 	})
 }
 
-// LogAndExit prints message with specified level and calls os.Exit(1)
+// LogAndExit prints message with specified level and calls os.Exit(1).
 func LogAndExit(level Level, v ...interface{}) {
 	Log(level, v...)
 	// TODO: flush?
 	os.Exit(1)
 }
 
-// LogfAndExit prints message with specified level and calls os.Exit(1)
+// LogfAndExit prints message with specified level and calls os.Exit(1).
 func LogfAndExit(level Level, format string, args ...interface{}) {
 	Logf(level, format, args...)
 	// TODO: flush?

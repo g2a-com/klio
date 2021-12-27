@@ -1,11 +1,12 @@
 package get
 
 import (
-	"github.com/g2a-com/klio/internal/context"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_initialiseProjectInCurrentDir(t *testing.T) {
@@ -41,7 +42,8 @@ func Test_initialiseProjectInCurrentDir(t *testing.T) {
 						ProjectConfigFile string
 						ProjectInstallDir string
 						GlobalInstallDir  string
-					}{}},
+					}{},
+				},
 			},
 			want: context.CLIContext{
 				Config: context.CLIConfig{
