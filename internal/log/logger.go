@@ -2,6 +2,7 @@ package log
 
 import (
 	"io"
+
 	"github.com/kataras/pio"
 )
 
@@ -13,9 +14,9 @@ type Logger struct {
 
 func NewLogger(output io.Writer) *Logger {
 	return &Logger{
-		Level: DefaultLevel,
+		Level:   DefaultLevel,
 		Printer: pio.NewPrinter("line", output).Marshal(newMarshaler(pio.SupportColors(output))),
-		Output: output,
+		Output:  output,
 	}
 }
 

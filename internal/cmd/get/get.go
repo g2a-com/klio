@@ -2,17 +2,17 @@ package get
 
 import (
 	"fmt"
+	"os"
+	"path"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
-	"os"
-	"path"
-
 	"github.com/spf13/cobra"
 )
 
-// Options for a get command
+// Options for a get command.
 type options struct {
 	Global  bool
 	NoSave  bool
@@ -22,7 +22,7 @@ type options struct {
 	NoInit  bool
 }
 
-// NewCommand creates a new get command
+// NewCommand creates a new get command.
 func NewCommand(ctx context.CLIContext) *cobra.Command {
 	opts := &options{}
 	cmd := &cobra.Command{
@@ -44,13 +44,12 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []string) {
+func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string) {
 	// Find directory for installing packages
 	var projectConfig *schema.ProjectConfig
 	var err error
 	var scope dependency.ScopeType
 	var installedDeps []schema.Dependency
-	var registry string
 
 	depsMgr := dependency.NewManager(ctx)
 	depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
@@ -79,9 +78,6 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 			log.Fatal(err)
 		}
 
-		if registry != "" {
-			registry = opts.From
-		}
 		if projectConfig.DefaultRegistry != "" {
 			depsMgr.DefaultRegistry = projectConfig.DefaultRegistry
 		}
@@ -143,7 +139,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	}
 }
 
-// initialiseProjectInCurrentDir creates default klio.yaml file in current directory and update context
+// initialiseProjectInCurrentDir creates default klio.yaml file in current directory and update context.
 func initialiseProjectInCurrentDir(ctx context.CLIContext) (context.CLIContext, error) {
 	// get current directory
 	currentWorkingDirectory, err := os.Getwd()
@@ -154,14 +150,14 @@ func initialiseProjectInCurrentDir(ctx context.CLIContext) (context.CLIContext, 
 	return initialiseProject(ctx, currentWorkingDirectory)
 }
 
-// initialiseProject creates default klio.yaml file in given directory and update context
+// initialiseProject creates default klio.yaml file in given directory and update context.
 func initialiseProject(ctx context.CLIContext, dirPath string) (context.CLIContext, error) {
 	// update context
 	ctx.Paths.ProjectInstallDir = path.Join(dirPath, ctx.Config.InstallDirName)
 	ctx.Paths.ProjectConfigFile = path.Join(dirPath, ctx.Config.ProjectConfigFileName)
 
 	// make sure install dir exists
-	err := os.MkdirAll(ctx.Paths.ProjectInstallDir, 0755)
+	err := os.MkdirAll(ctx.Paths.ProjectInstallDir, 0o755)
 	if err != nil {
 		return ctx, err
 	}

@@ -24,16 +24,14 @@ func discoverPaths(cfg CLIConfig) Paths {
 	return result
 }
 
-// UserHomeDir returns home directory of current user
+// UserHomeDir returns home directory of current user.
 func getHomeDirPath() string {
 	currentUser, err := user.Current()
-
 	if err != nil {
 		return ""
 	}
 
 	homeDir, err := filepath.EvalSymlinks(currentUser.HomeDir)
-
 	if err != nil {
 		return ""
 	}
@@ -42,10 +40,9 @@ func getHomeDirPath() string {
 }
 
 // ProjectRootDir returns root directory (directory containing klio.yaml file)
-// for a current project
+// for a current project.
 func findProjectConfigFile(homeDir string, projectConfigFileName string) string {
 	dir, err := os.Getwd()
-
 	if err != nil {
 		return ""
 	}
@@ -56,7 +53,7 @@ func findProjectConfigFile(homeDir string, projectConfigFileName string) string 
 		return ""
 	}
 
-	for true {
+	for {
 		// Home directory cannot be a project directory
 		if dir == homeDir {
 			break
