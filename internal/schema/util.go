@@ -8,13 +8,12 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/g2a-com/klio/internal/log"
 	"gopkg.in/go-playground/validator.v9"
 	"gopkg.in/yaml.v3"
-
-	"github.com/g2a-com/klio/internal/log"
 )
 
-// LoadConfigFile reads, parses and validates specified configuration file
+// LoadConfigFile reads, parses and validates specified configuration file.
 func LoadConfigFile(dataStruct interface{}, meta *Metadata, configFilePath string) error {
 	log.Spamf(`Loading file "%s"...`, configFilePath)
 
@@ -52,7 +51,7 @@ func LoadConfigFile(dataStruct interface{}, meta *Metadata, configFilePath strin
 	return nil
 }
 
-// SaveConfigFile validates, serializes and saves configuration to a file
+// SaveConfigFile validates, serializes and saves configuration to a file.
 func SaveConfigFile(data interface{}, configFilePath string) error {
 	log.Spamf(`Saving file "%s"...`, configFilePath)
 
@@ -60,7 +59,7 @@ func SaveConfigFile(data interface{}, configFilePath string) error {
 		return fmt.Errorf(`failed to generate valid config for %s: %s`, configFilePath, err)
 	}
 
-	file, err := os.OpenFile(configFilePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(configFilePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -122,7 +121,7 @@ func SaveDependenciesIndex(config *DependenciesIndex) error {
 	return SaveConfigFile(config, config.Meta.Path)
 }
 
-// CreateDefaultProjectConfig creates default ProjectConfig and save it to give path if it's not already there
+// CreateDefaultProjectConfig creates default ProjectConfig and save it to give path if it's not already there.
 func CreateDefaultProjectConfig(filePath string) (*ProjectConfig, error) {
 	// create default ProjectConfig
 	projectConfig := NewDefaultProjectConfig()
@@ -157,9 +156,9 @@ func validate(data interface{}, dir string) error {
 
 	validate := validator.New()
 
-	os.Chdir(dir)
+	_ = os.Chdir(dir)
 	err = validate.Struct(data)
-	os.Chdir(cwd)
+	_ = os.Chdir(cwd)
 
 	if err != nil {
 		fieldError := err.(validator.ValidationErrors)[0]

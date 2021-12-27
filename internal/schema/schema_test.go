@@ -1,9 +1,10 @@
 package schema
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestNewDefaultProjectConfig(t *testing.T) {

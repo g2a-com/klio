@@ -4,7 +4,7 @@ import (
 	"github.com/kataras/pio"
 )
 
-// Level is a number which defines the log level
+// Level is a number which defines the log level.
 type Level uint32
 
 const (
@@ -33,75 +33,74 @@ const (
 	SpamLevel
 )
 
-// DefaultLevel represents default level for non-error logs
+// DefaultLevel represents default level for non-error logs.
 const DefaultLevel = InfoLevel
 
-// DefaultErrorLevel represents default level for error logs
+// DefaultErrorLevel represents default level for error logs.
 const DefaultErrorLevel = ErrorLevel
 
-// MaxLevel represents maximum level for logs
+// MaxLevel represents maximum level for logs.
 const MaxLevel = SpamLevel
 
-// LevelNames contains all supported names of logging levels
+// LevelNames contains all supported names of logging levels.
 var LevelNames = []string{"disable", "fatal", "error", "warn", "info", "verbose", "debug", "spam"}
 
-// LevelsByName maps level names to golog.Level type
+// LevelsByName maps level names to golog.Level type.
 var LevelsByName = map[string]Level{
 	"disable": DisableLevel,
-	"fatal": FatalLevel,
-	"error": ErrorLevel,
-	"warn": WarnLevel,
-	"info": InfoLevel,
+	"fatal":   FatalLevel,
+	"error":   ErrorLevel,
+	"warn":    WarnLevel,
+	"info":    InfoLevel,
 	"verbose": VerboseLevel,
-	"debug": DebugLevel,
-	"spam": SpamLevel,
+	"debug":   DebugLevel,
+	"spam":    SpamLevel,
 }
 
 type LevelConfig struct {
-	Name string
+	Name        string
 	DisplayText string
-	Color int
+	Color       int
 }
 
 var levels = map[Level]LevelConfig{
 	DisableLevel: {
-		Name: "disable",
+		Name:        "disable",
 		DisplayText: "",
 	},
 	FatalLevel: {
-		Name: "fatal",
+		Name:        "fatal",
 		DisplayText: "FATA",
-		Color: pio.Red,
+		Color:       pio.Red,
 	},
 	ErrorLevel: {
-		Name: "error",
+		Name:        "error",
 		DisplayText: "ERRO",
-		Color: pio.Red,
+		Color:       pio.Red,
 	},
 	WarnLevel: {
-		Name: "error",
+		Name:        "error",
 		DisplayText: "WARN",
-		Color: pio.Yellow,
+		Color:       pio.Yellow,
 	},
 	InfoLevel: {
-		Name: "info",
+		Name:        "info",
 		DisplayText: "INFO",
-		Color: pio.Cyan,
+		Color:       pio.Cyan,
 	},
 	VerboseLevel: {
-		Name: "verbose",
+		Name:        "verbose",
 		DisplayText: "VERB",
-		Color: pio.Gray,
+		Color:       pio.Gray,
 	},
 	DebugLevel: {
-		Name: "debug",
+		Name:        "debug",
 		DisplayText: "DEBU",
-		Color: pio.Gray,
+		Color:       pio.Gray,
 	},
 	SpamLevel: {
-		Name: "spam",
+		Name:        "spam",
 		DisplayText: "SPAM",
-		Color: pio.Gray,
+		Color:       pio.Gray,
 	},
 }
-

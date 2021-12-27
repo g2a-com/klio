@@ -10,8 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
@@ -19,6 +17,7 @@ import (
 	"github.com/g2a-com/klio/internal/schema"
 	"github.com/g2a-com/klio/internal/tarball"
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/term"
 )
 
 type ScopeType string
@@ -46,7 +45,7 @@ func NewManager(ctx context.CLIContext) *Manager {
 }
 
 func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
-	// Initialize registry
+	// Initialize depRegistry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
 		if mgr.registries == nil {
 			mgr.registries = map[string]*registry.Registry{}
@@ -58,14 +57,14 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 	}
 
 	// Find versions
-	registry := mgr.registries[dep.Registry]
+	depRegistry := mgr.registries[dep.Registry]
 
-	nonBreaking := registry.FindCompatibleDependency(schema.Dependency{
+	nonBreaking := depRegistry.FindCompatibleDependency(schema.Dependency{
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  fmt.Sprintf("> %s, ^ %s", dep.Version, dep.Version),
 	})
-	breaking := registry.FindCompatibleDependency(schema.Dependency{
+	breaking := depRegistry.FindCompatibleDependency(schema.Dependency{
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  "> " + dep.Version,
@@ -102,7 +101,7 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 
 	// Make sure that install directory exists
 	if _, err := os.Stat(installDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(installDir, 0755); err != nil {
+		if err := os.MkdirAll(installDir, 0o755); err != nil {
 			log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", installDir, err)
 		}
 	}
@@ -134,7 +133,9 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(file.Name())
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(file.Name())
 
 	// Download tarball
 	checksum, err := downloadFile(entry.URL, file)
@@ -151,16 +152,16 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	outputRelPath := filepath.Join("dependencies", checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
 	if _, err := os.Stat(outputAbsPath); err == nil {
-		os.RemoveAll(outputAbsPath)
+		_ = os.RemoveAll(outputAbsPath)
 	} else if !os.IsNotExist(err) {
 		log.LogfAndExit(log.FatalLevel, "unable to remove directory: %s due to %s", outputAbsPath, err)
 	}
-	if err := os.MkdirAll(outputAbsPath, 0755); err != nil {
+	if err := os.MkdirAll(outputAbsPath, 0o755); err != nil {
 		log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", outputAbsPath, err)
 	}
 
 	// Extract tarball
-	file.Seek(0, io.SeekStart)
+	_, _ = file.Seek(0, io.SeekStart)
 	if err := tarball.Extract(file, outputAbsPath); err != nil {
 		return nil, err
 	}
@@ -192,7 +193,7 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	}
 
 	// Release lock
-	lock.Release(indexLockfilePath)
+	_ = lock.Release(indexLockfilePath)
 
 	// Return info about installed dependency
 	result := dep
@@ -214,7 +215,7 @@ func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]schema.Dependencies
 	}
 
 	// dependencies.json contains relative paths for commands, make them absolute
-	for idx, _ := range indexData.Entries {
+	for idx := range indexData.Entries {
 		indexData.Entries[idx].Path = filepath.Join(installDir, indexData.Entries[idx].Path)
 	}
 
@@ -245,12 +246,14 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	hash := sha256.New()
 	writer := io.MultiWriter(file, hash)
 
-	if terminal.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stdout.Fd())) {
 		progress := progressbar.DefaultBytes(
 			resp.ContentLength, // value -1 indicates that the length is unknown
 			"Downloading",

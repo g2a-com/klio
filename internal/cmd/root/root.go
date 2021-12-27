@@ -11,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCommand returns root command for a klio
+// NewCommand returns root command for a klio.
 func NewCommand(ctx context.CLIContext) *cobra.Command {
-	var cmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     ctx.Config.CommandName,
 		Long:    ctx.Config.Description,
 		Version: ctx.Config.Version,
@@ -27,7 +27,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	// logging level before executing command, so Parse() needs to be called here
 	// manually. As far as I checked, this doesn't interfere with cobra parsing
 	// rest of the flags later on.
-	cmd.PersistentFlags().Parse(os.Args)
+	_ = cmd.PersistentFlags().Parse(os.Args)
 
 	// Set log level. In order to pass log level to installed subcommands we need
 	// set env variable as well.
