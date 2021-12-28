@@ -2,21 +2,24 @@ package get
 
 import (
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_initialiseProjectInCurrentDir(t *testing.T) {
+const (
+	projectConfigFileName = "test-config-name.yaml"
+	installDirName        = "test-dir"
+)
+
+func TestInitialiseProjectInCurrentDir(t *testing.T) {
+
 	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("can't get current directory: %s", err)
 	}
-
-	projetConfigFileName := "test-config-name.yaml"
-	installDirName := "test-dir"
 
 	type args struct {
 		ctx context.CLIContext
@@ -35,7 +38,7 @@ func Test_initialiseProjectInCurrentDir(t *testing.T) {
 					Paths  context.Paths
 				}{
 					Config: context.CLIConfig{
-						ProjectConfigFileName: projetConfigFileName,
+						ProjectConfigFileName: projectConfigFileName,
 						InstallDirName:        installDirName,
 					},
 					Paths: struct {
@@ -47,12 +50,12 @@ func Test_initialiseProjectInCurrentDir(t *testing.T) {
 			},
 			want: context.CLIContext{
 				Config: context.CLIConfig{
-					ProjectConfigFileName: projetConfigFileName,
+					ProjectConfigFileName: projectConfigFileName,
 					InstallDirName:        installDirName,
 				},
 				Paths: context.Paths{
-					ProjectConfigFile: filepath.Join(currentWorkingDirectory, projetConfigFileName),
-					ProjectInstallDir: filepath.Join(currentWorkingDirectory, installDirName),
+					ProjectConfigFile: path.Join(currentWorkingDirectory, projectConfigFileName),
+					ProjectInstallDir: path.Join(currentWorkingDirectory, installDirName),
 					GlobalInstallDir:  "",
 				},
 			},
@@ -62,8 +65,12 @@ func Test_initialiseProjectInCurrentDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := initialiseProjectInCurrentDir(tt.args.ctx)
-			defer os.RemoveAll(got.Paths.GlobalInstallDir)
-			defer os.RemoveAll(got.Paths.ProjectConfigFile)
+			defer func(path string) {
+				_ = os.RemoveAll(path)
+			}(got.Paths.GlobalInstallDir)
+			defer func(path string) {
+				_ = os.RemoveAll(path)
+			}(got.Paths.ProjectConfigFile)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("initialiseProjectInCurrentDir() error = %v, wantErr %v", err, tt.wantErr)
