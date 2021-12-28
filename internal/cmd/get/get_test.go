@@ -15,7 +15,6 @@ const (
 )
 
 func TestInitialiseProjectInCurrentDir(t *testing.T) {
-
 	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("can't get current directory: %s", err)
