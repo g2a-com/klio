@@ -1,5 +1,8 @@
 # klio
 
+[![GoDoc](https://godoc.org/github.com/g2a-com/klio?status.svg)](https://godoc.org/github.com/g2a-com/klio)
+[![Go Report Card](https://goreportcard.com/badge/github.com/g2a-com/klio)](https://goreportcard.com/report/github.com/g2a-com/klio)
+
 Klio is a crossover between a framework for creating CLI tools and a package manager for installing
 them into your project. It can be used as a standalone tool, or as a library which enables you to
 create your own CLI.
