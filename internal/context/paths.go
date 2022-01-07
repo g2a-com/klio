@@ -9,7 +9,6 @@ import (
 )
 
 func assemblePaths(cfg CLIConfig) (Paths, error) {
-
 	homeDir, err := getHomeDirPath()
 	if err != nil {
 		return Paths{}, err

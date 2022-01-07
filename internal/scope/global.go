@@ -2,10 +2,11 @@ package scope
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/schema"
-	"os"
 )
 
 const allowedNumberOfGlobalCommands = 1
@@ -33,7 +34,6 @@ func (g *global) ValidatePaths() error {
 }
 
 func (g *global) Initialize(ctx *context.CLIContext) error {
-
 	// initialize dependency manager
 	g.dependencyManager = dependency.NewManager(*ctx)
 	g.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
@@ -42,7 +42,6 @@ func (g *global) Initialize(ctx *context.CLIContext) error {
 }
 
 func (g *global) InstallDependencies(listOfCommands []string) error {
-
 	if len(listOfCommands) != allowedNumberOfGlobalCommands {
 		return fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
 			len(listOfCommands), allowedNumberOfGlobalCommands)
