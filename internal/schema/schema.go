@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CommandConfigKind defines kind property value of for klio.yaml files
+// CommandConfigKind defines kind property value of for klio.yaml files.
 const CommandConfigKind string = "Command"
 
 type GenericConfigFile struct {
@@ -18,7 +18,7 @@ type GenericConfigFile struct {
 	Kind string `yaml:"kind"`
 }
 
-// CommandConfig describes structure of klio.yaml files
+// CommandConfig describes structure of klio.yaml files.
 type CommandConfig struct {
 	// Meta stores metadata of the config file (such as a path).
 	Meta Metadata `yaml:"-"`
@@ -32,7 +32,7 @@ type CommandConfig struct {
 	Description string `yaml:"description,omitempty"`
 }
 
-// PluginConfig describes structure of klio.yaml files
+// PluginConfig describes structure of klio.yaml files.
 type PluginConfig struct {
 	// Meta stores metadata of the config file (such as a path).
 	Meta Metadata `yaml:"-"`
@@ -46,7 +46,7 @@ type PluginConfig struct {
 	Description string `yaml:"description,omitempty"`
 }
 
-// ProjectConfig describes structure of klio.yaml files
+// ProjectConfig describes structure of klio.yaml files.
 type ProjectConfig struct {
 	Meta            Metadata
 	DefaultRegistry string
@@ -100,7 +100,7 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 	}
 
 	// Encode defaultRegistry
-	defaultRegistryValueNode.Encode(p.DefaultRegistry)
+	_ = defaultRegistryValueNode.Encode(p.DefaultRegistry)
 
 	// Encode dependencies
 	dependencies := map[string]Dependency{}
@@ -115,7 +115,7 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 		}
 		dependencies[key] = d
 	}
-	dependenciesValueNode.Encode(dependencies)
+	_ = dependenciesValueNode.Encode(dependencies)
 
 	// Return result
 	return p.yaml, nil
@@ -155,10 +155,10 @@ func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 
 		switch k.Value {
 		case "defaultRegistry":
-			v.Decode(&p.DefaultRegistry)
+			_ = v.Decode(&p.DefaultRegistry)
 		case "dependencies":
 			aux := map[string]Dependency{}
-			v.Decode(&aux)
+			_ = v.Decode(&aux)
 			for alias, dep := range aux {
 				dep.Alias = alias
 				p.Dependencies = append(p.Dependencies, dep)
@@ -170,7 +170,7 @@ func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 	p.yaml = node
 
 	// Normalize dependencies
-	for i, _ := range p.Dependencies {
+	for i := range p.Dependencies {
 		d := &p.Dependencies[i]
 		if d.Registry == "" {
 			d.Registry = p.DefaultRegistry
@@ -183,13 +183,13 @@ func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// Metadata contains additional info, such as path of config file
+// Metadata contains additional info, such as path of config file.
 type Metadata struct {
 	Path   string
 	Exists bool
 }
 
-// Dependency describes project's dependency - command or plugin
+// Dependency describes project's dependency - command or plugin.
 type Dependency struct {
 	Name     string `yaml:"name,omitempty"`
 	Registry string `yaml:"registry,omitempty"`

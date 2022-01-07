@@ -14,7 +14,7 @@ import (
 	"github.com/g2a-com/klio/internal/log"
 )
 
-// Extract extracts tar.gz archive into specified directory
+// Extract extracts tar.gz archive into specified directory.
 func Extract(gzipStream io.Reader, outputDir string) error {
 	log.Debugf("Start extracting tarball to %s", outputDir)
 
@@ -25,7 +25,7 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 
 	tarReader := tar.NewReader(uncompressedStream)
 
-	for true {
+	for {
 		header, err := tarReader.Next()
 
 		if err == io.EOF {
@@ -41,7 +41,7 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			log.Spamf("Creating directory: %s", path)
-			if err := os.Mkdir(path, 0755); err != nil && !os.IsExist(err) {
+			if err := os.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
 				return err
 			}
 		case tar.TypeReg:
@@ -50,7 +50,9 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 			if err != nil {
 				return err
 			}
-			defer outFile.Close()
+			defer func(outFile *os.File) {
+				_ = outFile.Close()
+			}(outFile)
 			if runtime.GOOS != "windows" {
 				if err = outFile.Chmod(os.FileMode(header.Mode)); err != nil {
 					return err
@@ -62,7 +64,7 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 
 			// Despite previous defer, close this file anyway,
 			// it will prevent hitting limit of open files.
-			outFile.Close()
+			_ = outFile.Close()
 		default:
 			return fmt.Errorf(
 				"tarball contains unknown type: %v in %s",

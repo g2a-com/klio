@@ -8,7 +8,7 @@ import (
 	"github.com/g2a-com/klio/internal/context"
 )
 
-// TODO - add comment
+// TODO - add comment.
 type CLI struct {
 	CommandName     string
 	Description     string
@@ -16,7 +16,7 @@ type CLI struct {
 	DefaultRegistry string
 }
 
-// TODO - add comment
+// TODO - add comment.
 func (cli *CLI) Execute() error {
 	cfg := context.CLIConfig{
 		CommandName:     cli.CommandName,

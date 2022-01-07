@@ -8,17 +8,16 @@ import (
 
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
-
 	"gopkg.in/yaml.v3"
 )
 
-// Registry represents some commands registry hosted by Artifactory
+// Registry represents some commands registry hosted by Artifactory.
 type Registry struct {
 	URL  string
 	data schema.Registry
 }
 
-// New returns new registry instance
+// New returns new registry instance.
 func New(registryURL string) *Registry {
 	registry := &Registry{
 		URL: registryURL,
