@@ -1,8 +1,9 @@
 package context
 
 type CLIContext struct {
-	Config CLIConfig
-	Paths  Paths
+	Config              CLIConfig
+	Paths               Paths
+	ProjectConfigExists bool
 }
 
 type CLIConfig struct {
@@ -20,9 +21,15 @@ type Paths struct {
 	GlobalInstallDir  string
 }
 
-func NewCLIContext(cfg CLIConfig) CLIContext {
-	return CLIContext{
-		Config: cfg,
-		Paths:  discoverPaths(cfg),
+func Initialize(cfg CLIConfig) (CLIContext, error) {
+	paths, err := assemblePaths(cfg)
+	if err != nil {
+		return CLIContext{}, err
 	}
+
+	return CLIContext{
+		Config:              cfg,
+		Paths:               paths,
+		ProjectConfigExists: IsProjectConfigPresent(paths.ProjectConfigFile),
+	}, nil
 }
