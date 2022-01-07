@@ -19,7 +19,6 @@ func installDependencies(depsMgr *dependency.Manager, toInstall []schema.Depende
 
 	for _, dep := range toInstall {
 		installedDep, err := depsMgr.InstallDependency(dep, scope)
-
 		if err != nil {
 			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
 		}

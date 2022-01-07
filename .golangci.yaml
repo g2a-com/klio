@@ -81,7 +81,7 @@ linters:
     #- gosec needs to be implemented
     # comment
     - godot
-    - prealloc
+    #- prealloc
     # format
     - gofumpt
     #style
