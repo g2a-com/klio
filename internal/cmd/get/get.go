@@ -2,13 +2,10 @@ package get
 
 import (
 	"fmt"
-	"os"
-	"path"
 
 	"github.com/g2a-com/klio/internal/context"
-	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
+	"github.com/g2a-com/klio/internal/scope"
 	"github.com/spf13/cobra"
 )
 
@@ -45,128 +42,25 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 }
 
 func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string) {
-	// Find directory for installing packages
-	var projectConfig *schema.ProjectConfig
-	var err error
-	var scope dependency.ScopeType
-	var installedDeps []schema.Dependency
-
-	depsMgr := dependency.NewManager(ctx)
-	depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
+	var getScope scope.Scope
 
 	if opts.Global {
-		scope = dependency.GlobalScope
-		if ctx.Paths.GlobalInstallDir == "" {
-			log.Fatal("Cannot init global install directory")
-		}
+		getScope = scope.NewGlobal(ctx.Paths.GlobalInstallDir, opts.From, opts.As, opts.Version)
 	} else {
-		scope = dependency.ProjectScope
-
-		if !opts.NoInit && ctx.Paths.ProjectInstallDir == "" {
-			ctx, err = initialiseProjectInCurrentDir(ctx)
-			if err != nil {
-				log.Fatalf("Failed to initialise project in the current dir: %s", err)
-			}
-			depsMgr = dependency.NewManager(ctx)
-		}
-
-		if ctx.Paths.ProjectInstallDir == "" {
-			log.Fatal(`Packages can be installed locally only under project directory, use "--global"`)
-		}
-		projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if projectConfig.DefaultRegistry != "" {
-			depsMgr.DefaultRegistry = projectConfig.DefaultRegistry
-		}
+		getScope = scope.NewLocal(ctx.Paths.ProjectConfigFile, ctx.Paths.ProjectInstallDir, opts.NoInit, opts.NoSave)
 	}
 
-	var toInstall []schema.Dependency
-
-	if len(args) == 0 && !opts.Global {
-		toInstall = projectConfig.Dependencies
-	} else {
-		toInstall = []schema.Dependency{
-			schema.Dependency{
-				Name:     args[0],
-				Version:  opts.Version,
-				Registry: opts.From,
-				Alias:    opts.As,
-			},
-		}
-	}
-
-	for _, dep := range toInstall {
-		installedDep, err := depsMgr.InstallDependency(dep, scope)
-
-		if err != nil {
-			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
-		} else {
-			if installedDep.Alias == "" {
-				log.Infof("Installed %s@%s from %s", installedDep.Name, installedDep.Version, installedDep.Registry)
-			} else {
-				log.Infof("Installed %s@%s from %s as %s", installedDep.Name, installedDep.Version, installedDep.Registry, installedDep.Alias)
-			}
-		}
-
-		installedDeps = append(installedDeps, *installedDep)
-	}
-
-	if !opts.Global && !opts.NoSave {
-		for _, installedDep := range installedDeps {
-			var idx int
-			for idx = 0; idx < len(projectConfig.Dependencies); idx++ {
-				if projectConfig.Dependencies[idx].Alias == installedDep.Alias {
-					break
-				}
-			}
-			if idx != len(projectConfig.Dependencies) {
-				projectConfig.Dependencies[idx] = installedDep
-			} else {
-				projectConfig.Dependencies = append(projectConfig.Dependencies, installedDep)
-			}
-		}
-
-		projectConfig.DefaultRegistry = depsMgr.DefaultRegistry
-
-		if err := schema.SaveProjectConfig(projectConfig); err != nil {
-			log.Errorf("Unable to update dependencies in the %s file: %s", ctx.Config.ProjectConfigFileName, err)
-		} else {
-			log.Infof("Updated dependencies in the %s file", ctx.Config.ProjectConfigFileName)
-		}
-	}
-}
-
-// initialiseProjectInCurrentDir creates default klio.yaml file in current directory and update context.
-func initialiseProjectInCurrentDir(ctx context.CLIContext) (context.CLIContext, error) {
-	// get current directory
-	currentWorkingDirectory, err := os.Getwd()
+	err := getScope.ValidatePaths()
 	if err != nil {
-		return ctx, err
+		log.Fatalf("validation of paths failed: %s", err)
 	}
-
-	return initialiseProject(ctx, currentWorkingDirectory)
-}
-
-// initialiseProject creates default klio.yaml file in given directory and update context.
-func initialiseProject(ctx context.CLIContext, dirPath string) (context.CLIContext, error) {
-	// update context
-	ctx.Paths.ProjectInstallDir = path.Join(dirPath, ctx.Config.InstallDirName)
-	ctx.Paths.ProjectConfigFile = path.Join(dirPath, ctx.Config.ProjectConfigFileName)
-
-	// make sure install dir exists
-	err := os.MkdirAll(ctx.Paths.ProjectInstallDir, 0o755)
+	err = getScope.Initialize(&ctx)
 	if err != nil {
-		return ctx, err
+		log.Fatalf("scope initialization failed: %s", err)
 	}
-
-	// create and save default klio config
-	_, err = schema.CreateDefaultProjectConfig(ctx.Paths.ProjectConfigFile)
+	err = getScope.InstallDependencies(args)
 	if err != nil {
-		return ctx, err
+		log.Fatalf("installing dependencies failed: %s", err)
 	}
-
-	return ctx, nil
+	log.Info(getScope.GetSuccessMsg())
 }
