@@ -3,12 +3,13 @@ package cli
 import (
 	"errors"
 	"fmt"
+
 	"github.com/g2a-com/klio/internal/cmd/root"
 	"github.com/g2a-com/klio/internal/context"
 )
 
 // CLI defines a custom-made cli
-//TODO: launch the validation
+// TODO: launch the validation.
 type CLI struct {
 	// CommandName invokes your custom CLI together with any potential subcommands.
 	// Treat it as the parent command.

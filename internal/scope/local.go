@@ -2,17 +2,20 @@ package scope
 
 import (
 	"fmt"
-	"github.com/g2a-com/klio/internal/dependency"
 	"os"
 	"os/user"
 	"path"
 	"strings"
 
 	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/schema"
 )
 
-const allowedNumberOfLocalCommands = 0
+const (
+	allowedNumberOfLocalCommands = 0
+	standardDirPermission        = 0o755
+)
 
 type local struct {
 	projectConfig     *schema.ProjectConfig
@@ -47,10 +50,9 @@ func (l *local) ValidatePaths() error {
 }
 
 func (l *local) Initialize(ctx *context.CLIContext) error {
-
 	if !l.NoInit && !ctx.ProjectConfigExists {
 		// make sure install dir exists
-		_ = os.MkdirAll(l.ProjectInstallDir, 0o755)
+		_ = os.MkdirAll(l.ProjectInstallDir, standardDirPermission)
 
 		// make sure if config file exists
 		if configFile, err := os.Stat(l.ProjectConfigFile); os.IsNotExist(err) {
@@ -102,7 +104,6 @@ func (l *local) InstallDependencies(listOfCommands []string) error {
 				}
 			}
 			if idx != len(l.projectConfig.Dependencies) {
-
 			} else {
 				l.projectConfig.Dependencies = append(l.projectConfig.Dependencies, installedDep)
 			}
