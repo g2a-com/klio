@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
 	"gopkg.in/yaml.v3"
@@ -59,7 +60,7 @@ func (reg *Registry) Update() error {
 	return nil
 }
 
-func (reg *Registry) FindCompatibleDependency(dep schema.Dependency) (entry *schema.RegistryEntry) {
+func (reg *Registry) FindCompatibleDependency(dep dependency.Dependency) (entry *schema.RegistryEntry) {
 	var result *schema.RegistryEntry
 	var resultVer Version
 

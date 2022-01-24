@@ -2,26 +2,25 @@ package scope
 
 import (
 	"fmt"
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
 	"os"
 
 	"github.com/g2a-com/klio/internal/context"
-	"github.com/g2a-com/klio/internal/dependency"
-	"github.com/g2a-com/klio/internal/schema"
 )
 
 const allowedNumberOfGlobalCommands = 1
 
 type global struct {
-	dependencyManager    *dependency.Manager
+	dependencyManager    *manager.Manager
 	commandName          string
+	installedDeps        []dependency.Dependency
 	GlobalInstallDir     string
-	CommandFromOption    string
-	CommandAsOption      string
 	CommandVersionOption string
 }
 
-func NewGlobal(globalInstallDir string, commandFromOption string, commandAsOption string, commandVersionOption string) *global {
-	return &global{GlobalInstallDir: globalInstallDir, CommandFromOption: commandFromOption, CommandAsOption: commandAsOption, CommandVersionOption: commandVersionOption}
+func NewGlobal(globalInstallDir string) *global {
+	return &global{GlobalInstallDir: globalInstallDir}
 }
 
 func (g *global) ValidatePaths() error {
@@ -35,33 +34,29 @@ func (g *global) ValidatePaths() error {
 
 func (g *global) Initialize(ctx *context.CLIContext) error {
 	// initialize dependency manager
-	g.dependencyManager = dependency.NewManager(*ctx)
+	g.dependencyManager = manager.NewManager(*ctx)
 	g.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
 
 	return nil
 }
 
-func (g *global) InstallDependencies(listOfCommands []string) error {
+func (g *global) GetImplicitDependencies() []dependency.Dependency {
+	return []dependency.Dependency{}
+}
+
+func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) error {
 	if len(listOfCommands) != allowedNumberOfGlobalCommands {
 		return fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
 			len(listOfCommands), allowedNumberOfGlobalCommands)
 	}
-	g.commandName = listOfCommands[0]
 
-	dep := []schema.Dependency{
-		{
-			Name:     g.commandName,
-			Version:  g.CommandVersionOption,
-			Registry: g.CommandFromOption,
-			Alias:    g.CommandAsOption,
-		},
-	}
+	dep := listOfCommands
 
-	_ = installDependencies(g.dependencyManager, dep, dependency.GlobalScope)
+	g.installedDeps = installDependencies(g.dependencyManager, dep, manager.GlobalScope)
 
 	return nil
 }
 
-func (g *global) GetSuccessMsg() string {
-	return fmt.Sprintf("command %s:%s installed successfully", g.commandName, g.CommandVersionOption)
+func (g *global) GetInstalledDependencies() []dependency.Dependency {
+	return g.installedDeps
 }
