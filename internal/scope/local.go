@@ -50,7 +50,7 @@ func (l *local) ValidatePaths() error {
 }
 
 func (l *local) Initialize(ctx *context.CLIContext) error {
-	if !l.NoInit && !ctx.ProjectConfigExists {
+	if !l.NoInit {
 		// make sure install dir exists
 		_ = os.MkdirAll(l.ProjectInstallDir, standardDirPermission)
 
@@ -60,15 +60,9 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 			if err != nil {
 				return err
 			}
-			ctx.ProjectConfigExists = true
 		} else if err == nil && configFile.IsDir() {
 			return fmt.Errorf("can't create config file; path collision with a directory %s", l.ProjectConfigFile)
 		}
-	}
-
-	// if project was not setup by user nor automatically, throw error
-	if !ctx.ProjectConfigExists {
-		return fmt.Errorf(`packages can be installed locally only under project directory, use "--global"`)
 	}
 
 	// initialize dependency manager

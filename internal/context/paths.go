@@ -14,21 +14,16 @@ func assemblePaths(cfg CLIConfig) (Paths, error) {
 		return Paths{}, err
 	}
 
-	workDir, err := getWorkDirPath()
+	projectDir, err := getProjectDir(cfg.ProjectConfigFileName)
 	if err != nil {
 		return Paths{}, err
 	}
 
 	return Paths{
-		ProjectConfigFile: path.Join(workDir, cfg.ProjectConfigFileName),
-		ProjectInstallDir: path.Join(workDir, cfg.InstallDirName),
+		ProjectConfigFile: path.Join(projectDir, cfg.ProjectConfigFileName),
+		ProjectInstallDir: path.Join(projectDir, cfg.InstallDirName),
 		GlobalInstallDir:  path.Join(homeDir, cfg.InstallDirName),
 	}, nil
-}
-
-func IsProjectConfigPresent(projectConfigFile string) bool {
-	fi, err := os.Stat(projectConfigFile)
-	return err == nil && !fi.IsDir()
 }
 
 // getHomeDirPath returns home directory of current user.
@@ -46,6 +41,22 @@ func getHomeDirPath() (string, error) {
 	return homeDir, nil
 }
 
+func getProjectDir(configFileName string) (string, error) {
+	workDir, err := getWorkDirPath()
+	if err != nil {
+		return "", err
+	}
+
+	for dir := workDir; dir != "/"; dir = path.Dir(dir) {
+		projectConfigPath := path.Join(dir, configFileName)
+		if _, err := os.Stat(projectConfigPath); err == nil {
+			return dir, nil
+		}
+	}
+
+	return "", fmt.Errorf("packages can be installed locally only under project directory, use \"--global\"`")
+}
+
 // getWorkDirPath returns home directory of current user.
 func getWorkDirPath() (string, error) {
 	wd, err := os.Getwd()
@@ -53,10 +64,5 @@ func getWorkDirPath() (string, error) {
 		return "", fmt.Errorf("can't determine working directory; %s", err)
 	}
 
-	wdDir, err := filepath.EvalSymlinks(wd)
-	if err != nil {
-		return "", fmt.Errorf("can't determine fetch directory; %s", err)
-	}
-
-	return wdDir, nil
+	return wd, nil
 }
