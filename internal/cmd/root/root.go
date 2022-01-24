@@ -6,7 +6,7 @@ import (
 
 	getCommand "github.com/g2a-com/klio/internal/cmd/get"
 	"github.com/g2a-com/klio/internal/context"
-	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/spf13/cobra"
 )
@@ -42,12 +42,12 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	}
 
 	// Discover commands
-	depsMgr := dependency.NewManager(ctx)
-	globalCommands, err := depsMgr.GetInstalledCommands(dependency.GlobalScope)
+	depsMgr := manager.NewManager(ctx)
+	globalCommands, err := depsMgr.GetInstalledCommands(manager.GlobalScope)
 	if err != nil {
 		log.Verbose(err)
 	}
-	projectCommands, err := depsMgr.GetInstalledCommands(dependency.ProjectScope)
+	projectCommands, err := depsMgr.GetInstalledCommands(manager.ProjectScope)
 	if err != nil {
 		log.Verbose(err)
 	}

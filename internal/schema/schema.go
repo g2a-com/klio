@@ -4,14 +4,14 @@ import (
 	"errors"
 
 	"gopkg.in/yaml.v3"
-)
 
-// CommandConfigKind defines kind property value of for klio.yaml files.
-const CommandConfigKind string = "Command"
+	"github.com/g2a-com/klio/internal/config"
+	"github.com/g2a-com/klio/internal/dependency"
+)
 
 type GenericConfigFile struct {
 	// Meta stores metadata of the config file (such as a path).
-	Meta Metadata `yaml:"-"`
+	Meta config.Metadata `yaml:"-"`
 	// APIVersion can be used to handle more than one config file format
 	APIVersion string `yaml:"apiVersion"`
 	// Kind of the config file
@@ -21,7 +21,7 @@ type GenericConfigFile struct {
 // CommandConfig describes structure of klio.yaml files.
 type CommandConfig struct {
 	// Meta stores metadata of the config file (such as a path).
-	Meta Metadata `yaml:"-"`
+	Meta config.Metadata `yaml:"-"`
 	// APIVersion can be used to handle more than one config file format
 	APIVersion string `yaml:"apiVersion,omitempty"`
 	// Kind of the config file
@@ -35,7 +35,7 @@ type CommandConfig struct {
 // PluginConfig describes structure of klio.yaml files.
 type PluginConfig struct {
 	// Meta stores metadata of the config file (such as a path).
-	Meta Metadata `yaml:"-"`
+	Meta config.Metadata `yaml:"-"`
 	// APIVersion can be used to handle more than one config file format
 	APIVersion string `yaml:"apiVersion,omitempty"`
 	// Kind of the config file
@@ -48,9 +48,9 @@ type PluginConfig struct {
 
 // ProjectConfig describes structure of klio.yaml files.
 type ProjectConfig struct {
-	Meta            Metadata
+	Meta            config.Metadata
 	DefaultRegistry string
-	Dependencies    []Dependency
+	Dependencies    []dependency.Dependency
 	yaml            *yaml.Node
 }
 
@@ -103,7 +103,7 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 	_ = defaultRegistryValueNode.Encode(p.DefaultRegistry)
 
 	// Encode dependencies
-	dependencies := map[string]Dependency{}
+	dependencies := map[string]dependency.Dependency{}
 	for _, d := range p.Dependencies {
 		key := d.Alias
 		d.Alias = ""
@@ -157,7 +157,7 @@ func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 		case "defaultRegistry":
 			_ = v.Decode(&p.DefaultRegistry)
 		case "dependencies":
-			aux := map[string]Dependency{}
+			aux := map[string]dependency.Dependency{}
 			_ = v.Decode(&aux)
 			for alias, dep := range aux {
 				dep.Alias = alias
@@ -183,22 +183,8 @@ func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// Metadata contains additional info, such as path of config file.
-type Metadata struct {
-	Path   string
-	Exists bool
-}
-
-// Dependency describes project's dependency - command or plugin.
-type Dependency struct {
-	Name     string `yaml:"name,omitempty"`
-	Registry string `yaml:"registry,omitempty"`
-	Version  string `yaml:"version"`
-	Alias    string `yaml:"-"`
-}
-
 type Registry struct {
-	Meta        Metadata          `yaml:"-"`
+	Meta        config.Metadata   `yaml:"-"`
 	APIVersion  string            `yaml:"apiVersion,omitempty"`
 	Kind        string            `yaml:"kind,omitempty"`
 	Annotations map[string]string `yaml:"annotations"`
@@ -219,22 +205,4 @@ type RegistryEntryVersion struct {
 	Number string `yaml:"number" json:"number"`
 	OS     string `yaml:"os" json:"os"`
 	Arch   string `yaml:"arch" json:"arch"`
-}
-
-type DependenciesIndex struct {
-	Meta       Metadata                 `json:"-"`
-	APIVersion string                   `json:"apiVersion,omitempty"`
-	Kind       string                   `json:"kind,omitempty"`
-	Entries    []DependenciesIndexEntry `json:"entries"`
-}
-
-type DependenciesIndexEntry struct {
-	Alias    string `json:"alias"`
-	Registry string `json:"registry"`
-	Name     string `json:"name"`
-	Version  string `json:"version"`
-	OS       string `json:"os"`
-	Arch     string `json:"arch"`
-	Checksum string `json:"checksum"`
-	Path     string `json:"path"`
 }

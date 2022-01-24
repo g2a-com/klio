@@ -1,4 +1,4 @@
-package dependency
+package manager
 
 import (
 	"crypto/sha256"
@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 
 	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
 	"github.com/g2a-com/klio/internal/tarball"
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/term"
@@ -44,7 +44,7 @@ func NewManager(ctx context.CLIContext) *Manager {
 	}
 }
 
-func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
+func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Initialize depRegistry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
 		if mgr.registries == nil {
@@ -59,12 +59,12 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 	// Find versions
 	depRegistry := mgr.registries[dep.Registry]
 
-	nonBreaking := depRegistry.FindCompatibleDependency(schema.Dependency{
+	nonBreaking := depRegistry.FindCompatibleDependency(dependency.Dependency{
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  fmt.Sprintf("> %s, ^ %s", dep.Version, dep.Version),
 	})
-	breaking := depRegistry.FindCompatibleDependency(schema.Dependency{
+	breaking := depRegistry.FindCompatibleDependency(dependency.Dependency{
 		Registry: dep.Registry,
 		Name:     dep.Name,
 		Version:  "> " + dep.Version,
@@ -83,7 +83,7 @@ func (mgr *Manager) GetUpdateFor(dep schema.Dependency) (Updates, error) {
 	return updates, nil
 }
 
-func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*schema.Dependency, error) {
+func (mgr *Manager) InstallDependency(dep dependency.Dependency, scope ScopeType) (*dependency.Dependency, error) {
 	installDir, err := mgr.getInstallDir(scope)
 	if err != nil {
 		return nil, err
@@ -167,17 +167,17 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	}
 
 	// Add dependency to dependencies.json
-	index, err := schema.LoadDependenciesIndex(indexPath)
+	index, err := dependency.LoadDependenciesIndex(indexPath)
 	if err != nil {
 		return nil, err
 	}
-	newEntries := make([]schema.DependenciesIndexEntry, 0, len(index.Entries))
+	newEntries := make([]dependency.DependenciesIndexEntry, 0, len(index.Entries))
 	for _, entry := range index.Entries {
 		if entry.Alias != dep.Alias {
 			newEntries = append(newEntries, entry)
 		}
 	}
-	newEntries = append(newEntries, schema.DependenciesIndexEntry{
+	newEntries = append(newEntries, dependency.DependenciesIndexEntry{
 		Alias:    dep.Alias,
 		Registry: dep.Registry,
 		Name:     dep.Name,
@@ -188,7 +188,7 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 		Path:     outputRelPath,
 	})
 	index.Entries = newEntries
-	if err := schema.SaveDependenciesIndex(index); err != nil {
+	if err := dependency.SaveDependenciesIndex(index); err != nil {
 		return nil, err
 	}
 
@@ -202,16 +202,16 @@ func (mgr *Manager) InstallDependency(dep schema.Dependency, scope ScopeType) (*
 	return &result, nil
 }
 
-func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]schema.DependenciesIndexEntry, error) {
+func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]dependency.DependenciesIndexEntry, error) {
 	installDir, err := mgr.getInstallDir(scope)
 	if err != nil {
-		return []schema.DependenciesIndexEntry{}, err
+		return []dependency.DependenciesIndexEntry{}, err
 	}
 
 	indexPath := filepath.Join(installDir, "dependencies.json")
-	indexData, err := schema.LoadDependenciesIndex(indexPath)
+	indexData, err := dependency.LoadDependenciesIndex(indexPath)
 	if err != nil {
-		return []schema.DependenciesIndexEntry{}, err
+		return []dependency.DependenciesIndexEntry{}, err
 	}
 
 	// dependencies.json contains relative paths for commands, make them absolute

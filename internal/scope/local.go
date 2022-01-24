@@ -2,24 +2,23 @@ package scope
 
 import (
 	"fmt"
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
+	"github.com/g2a-com/klio/internal/schema"
 	"os"
 	"os/user"
 	"path"
-	"strings"
-
-	"github.com/g2a-com/klio/internal/context"
-	"github.com/g2a-com/klio/internal/dependency"
-	"github.com/g2a-com/klio/internal/schema"
 )
 
 const (
-	allowedNumberOfLocalCommands = 0
-	standardDirPermission        = 0o755
+	standardDirPermission = 0o755
 )
 
 type local struct {
 	projectConfig     *schema.ProjectConfig
-	dependencyManager *dependency.Manager
+	dependencyManager *manager.Manager
+	installedDeps     []dependency.Dependency
 	ProjectConfigFile string
 	ProjectInstallDir string
 	NoInit            bool
@@ -66,7 +65,7 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 	}
 
 	// initialize dependency manager
-	l.dependencyManager = dependency.NewManager(*ctx)
+	l.dependencyManager = manager.NewManager(*ctx)
 	l.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
 
 	// load project config
@@ -79,18 +78,21 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 	return nil
 }
 
-func (l *local) InstallDependencies(listOfCommands []string) error {
-	if len(listOfCommands) != allowedNumberOfLocalCommands {
-		return fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
-			len(listOfCommands), allowedNumberOfLocalCommands)
+func (l *local) GetImplicitDependencies() []dependency.Dependency {
+	return l.projectConfig.Dependencies
+}
+
+func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) error {
+	if len(listOfCommands) == 0 {
+		return fmt.Errorf("no dependencies provided for the project")
 	}
 
-	installedDeps := installDependencies(l.dependencyManager, l.projectConfig.Dependencies, dependency.GlobalScope)
+	l.installedDeps = installDependencies(l.dependencyManager, listOfCommands, manager.GlobalScope)
 
 	if !l.NoSave {
-		for _, installedDep := range installedDeps {
+		for _, installedDep := range l.installedDeps {
 			var idx int
-			var projectDep schema.Dependency
+			var projectDep dependency.Dependency
 			for idx, projectDep = range l.projectConfig.Dependencies {
 				if projectDep.Alias == installedDep.Alias {
 					l.projectConfig.Dependencies[idx] = installedDep
@@ -113,15 +115,6 @@ func (l *local) InstallDependencies(listOfCommands []string) error {
 	return nil
 }
 
-func (l *local) GetSuccessMsg() string {
-	var formattingArray []string
-
-	if len(l.projectConfig.Dependencies) == 0 {
-		return "no dependencies installed, ensure that the config file is correct"
-	}
-
-	for _, d := range l.projectConfig.Dependencies {
-		formattingArray = append(formattingArray, fmt.Sprintf("%s:%s", d.Alias, d.Version))
-	}
-	return fmt.Sprintf("all project dependencies (%s) installed successfully", strings.Join(formattingArray, ","))
+func (l *local) GetInstalledDependencies() []dependency.Dependency {
+	return l.installedDeps
 }

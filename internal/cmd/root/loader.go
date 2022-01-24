@@ -12,6 +12,7 @@ import (
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ import (
 
 const fiveSeconds = 5 * time.Second
 
-func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep schema.DependenciesIndexEntry, global bool) {
+func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dependency.DependenciesIndexEntry, global bool) {
 	if cmd, _, _ := rootCmd.Find([]string{dep.Alias}); cmd != rootCmd {
 		log.Spamf("cannot register already registered command '%s'", dep.Alias)
 		return
@@ -108,8 +109,8 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep sch
 	rootCmd.AddCommand(cmd)
 }
 
-func getUpdateMessage(ctx context.CLIContext, dep schema.DependenciesIndexEntry, global bool, msg chan<- string) {
-	depMgr := dependency.NewManager(ctx)
+func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEntry, global bool, msg chan<- string) {
+	depMgr := manager.NewManager(ctx)
 
 	getInstallCmd := func(ver string) string {
 		cmd := fmt.Sprintf("%s get", ctx.Config.CommandName)
@@ -126,7 +127,7 @@ func getUpdateMessage(ctx context.CLIContext, dep schema.DependenciesIndexEntry,
 	}
 
 	// Check for new version
-	update, err := depMgr.GetUpdateFor(schema.Dependency{Registry: dep.Registry, Name: dep.Name, Version: dep.Version})
+	update, err := depMgr.GetUpdateFor(dependency.Dependency{Registry: dep.Registry, Name: dep.Name, Version: dep.Version})
 	if err != nil {
 		log.Warn(err)
 	}
