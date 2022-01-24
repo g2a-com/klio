@@ -2,6 +2,8 @@ package get
 
 import (
 	"fmt"
+	"github.com/g2a-com/klio/internal/dependency"
+	"strings"
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/log"
@@ -45,7 +47,7 @@ func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string)
 	var getScope scope.Scope
 
 	if opts.Global {
-		getScope = scope.NewGlobal(ctx.Paths.GlobalInstallDir, opts.From, opts.As, opts.Version)
+		getScope = scope.NewGlobal(ctx.Paths.GlobalInstallDir)
 	} else {
 		getScope = scope.NewLocal(ctx.Paths.ProjectConfigFile, ctx.Paths.ProjectInstallDir, opts.NoInit, opts.NoSave)
 	}
@@ -58,9 +60,33 @@ func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string)
 	if err != nil {
 		log.Fatalf("scope initialization failed: %s", err)
 	}
-	err = getScope.InstallDependencies(args)
+
+	var dependencies []dependency.Dependency
+	switch len(args) {
+	case 0:
+		dependencies = getScope.GetImplicitDependencies()
+	case 1:
+		dependencies = []dependency.Dependency{
+			{
+				Name:     args[0],
+				Registry: opts.Version,
+				Version:  opts.From,
+				Alias:    opts.As,
+			},
+		}
+	default:
+		log.Fatalf("max one command can be provided for install; provided %d", len(args))
+	}
+
+	err = getScope.InstallDependencies(dependencies)
 	if err != nil {
 		log.Fatalf("installing dependencies failed: %s", err)
 	}
-	log.Info(getScope.GetSuccessMsg())
+
+	installedDeps := getScope.GetInstalledDependencies()
+	var formattingArray []string
+	for _, d := range installedDeps {
+		formattingArray = append(formattingArray, fmt.Sprintf("%s:%s", d.Alias, d.Version))
+	}
+	log.Infof("All dependencies (%s) installed successfully", strings.Join(formattingArray, ","))
 }

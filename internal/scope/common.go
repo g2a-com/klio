@@ -3,19 +3,20 @@ package scope
 import (
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
 )
 
 type Scope interface {
-	GetSuccessMsg() string
 	ValidatePaths() error
-	Initialize(ctx *context.CLIContext) error
-	InstallDependencies(listOfCommands []string) error
+	Initialize(*context.CLIContext) error
+	GetImplicitDependencies() []dependency.Dependency
+	InstallDependencies([]dependency.Dependency) error
+	GetInstalledDependencies() []dependency.Dependency
 }
 
-func installDependencies(depsMgr *dependency.Manager, toInstall []schema.Dependency, scope dependency.ScopeType) []schema.Dependency {
-	var installedDeps []schema.Dependency
+func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, scope manager.ScopeType) []dependency.Dependency {
+	var installedDeps []dependency.Dependency
 
 	for _, dep := range toInstall {
 		installedDep, err := depsMgr.InstallDependency(dep, scope)
