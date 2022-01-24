@@ -1,9 +1,8 @@
 package context
 
 type CLIContext struct {
-	Config              CLIConfig
-	Paths               Paths
-	ProjectConfigExists bool
+	Config CLIConfig
+	Paths  Paths
 }
 
 type CLIConfig struct {
@@ -28,8 +27,7 @@ func Initialize(cfg CLIConfig) (CLIContext, error) {
 	}
 
 	return CLIContext{
-		Config:              cfg,
-		Paths:               paths,
-		ProjectConfigExists: IsProjectConfigPresent(paths.ProjectConfigFile),
+		Config: cfg,
+		Paths:  paths,
 	}, nil
 }
