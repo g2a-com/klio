@@ -54,7 +54,7 @@ func getProjectDir(configFileName string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("packages can be installed locally only under project directory, use \"--global\"`")
+	return "", fmt.Errorf("packages can be installed locally only under project directory, use \"--global\"")
 }
 
 // getWorkDirPath returns home directory of current user.

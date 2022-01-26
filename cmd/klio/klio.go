@@ -1,8 +1,7 @@
 package main
 
 import (
-	"os"
-
+	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/pkg/cli"
 )
 
@@ -15,6 +14,6 @@ func main() {
 	}
 
 	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
