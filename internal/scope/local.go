@@ -2,13 +2,15 @@ package scope
 
 import (
 	"fmt"
+	"os"
+	"os/user"
+	"path"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/schema"
-	"os"
-	"os/user"
-	"path"
+	"github.com/spf13/afero"
 )
 
 const (
@@ -19,6 +21,7 @@ type local struct {
 	projectConfig     *schema.ProjectConfig
 	dependencyManager *manager.Manager
 	installedDeps     []dependency.Dependency
+	os                afero.Fs
 	ProjectConfigFile string
 	ProjectInstallDir string
 	NoInit            bool
@@ -26,7 +29,7 @@ type local struct {
 }
 
 func NewLocal(projectConfigFile string, projectInstallDir string, noInit bool, noSave bool) *local {
-	return &local{ProjectConfigFile: projectConfigFile, ProjectInstallDir: projectInstallDir, NoInit: noInit, NoSave: noSave}
+	return &local{ProjectConfigFile: projectConfigFile, ProjectInstallDir: projectInstallDir, NoInit: noInit, NoSave: noSave, os: afero.NewOsFs()}
 }
 
 func (l *local) ValidatePaths() error {
@@ -51,10 +54,10 @@ func (l *local) ValidatePaths() error {
 func (l *local) Initialize(ctx *context.CLIContext) error {
 	if !l.NoInit {
 		// make sure install dir exists
-		_ = os.MkdirAll(l.ProjectInstallDir, standardDirPermission)
+		_ = l.os.MkdirAll(l.ProjectInstallDir, standardDirPermission)
 
 		// make sure if config file exists
-		if configFile, err := os.Stat(l.ProjectConfigFile); os.IsNotExist(err) {
+		if configFile, err := l.os.Stat(l.ProjectConfigFile); os.IsNotExist(err) {
 			_, err = schema.CreateDefaultProjectConfig(l.ProjectConfigFile)
 			if err != nil {
 				return err

@@ -1,9 +1,9 @@
 package schema
 
 import (
-	"github.com/g2a-com/klio/internal/config"
 	"testing"
 
+	"github.com/g2a-com/klio/internal/config"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
