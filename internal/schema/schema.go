@@ -3,10 +3,9 @@ package schema
 import (
 	"errors"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/g2a-com/klio/internal/config"
 	"github.com/g2a-com/klio/internal/dependency"
+	"gopkg.in/yaml.v3"
 )
 
 type GenericConfigFile struct {
@@ -181,28 +180,4 @@ func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	return nil
-}
-
-type Registry struct {
-	Meta        config.Metadata   `yaml:"-"`
-	APIVersion  string            `yaml:"apiVersion,omitempty"`
-	Kind        string            `yaml:"kind,omitempty"`
-	Annotations map[string]string `yaml:"annotations"`
-	Entries     []RegistryEntry   `yaml:"entries"`
-}
-
-type RegistryEntry struct {
-	Name        string            `yaml:"name"`
-	Version     string            `yaml:"version"`
-	OS          string            `json:"os"`
-	Arch        string            `json:"arch"`
-	Annotations map[string]string `yaml:"annotations"`
-	URL         string            `yaml:"url"`
-	Checksum    string            `yaml:"checksum"`
-}
-
-type RegistryEntryVersion struct {
-	Number string `yaml:"number" json:"number"`
-	OS     string `yaml:"os" json:"os"`
-	Arch   string `yaml:"arch" json:"arch"`
 }
