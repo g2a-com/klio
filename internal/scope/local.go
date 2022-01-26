@@ -87,7 +87,7 @@ func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) erro
 		return fmt.Errorf("no dependencies provided for the project")
 	}
 
-	l.installedDeps = installDependencies(l.dependencyManager, listOfCommands, manager.GlobalScope)
+	l.installedDeps = installDependencies(l.dependencyManager, listOfCommands, manager.ProjectScope)
 
 	if !l.NoSave {
 		for _, installedDep := range l.installedDeps {
