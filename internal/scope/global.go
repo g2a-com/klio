@@ -2,29 +2,29 @@ package scope
 
 import (
 	"fmt"
-	"github.com/g2a-com/klio/internal/dependency"
-	"github.com/g2a-com/klio/internal/dependency/manager"
 	"os"
 
 	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
+	"github.com/spf13/afero"
 )
 
 const allowedNumberOfGlobalCommands = 1
 
 type global struct {
-	dependencyManager    *manager.Manager
-	commandName          string
-	installedDeps        []dependency.Dependency
-	GlobalInstallDir     string
-	CommandVersionOption string
+	os                afero.Fs
+	dependencyManager *manager.Manager
+	installedDeps     []dependency.Dependency
+	GlobalInstallDir  string
 }
 
 func NewGlobal(globalInstallDir string) *global {
-	return &global{GlobalInstallDir: globalInstallDir}
+	return &global{GlobalInstallDir: globalInstallDir, os: afero.NewOsFs()}
 }
 
 func (g *global) ValidatePaths() error {
-	if _, err := os.Stat(g.GlobalInstallDir); os.IsNotExist(err) {
+	if _, err := g.os.Stat(g.GlobalInstallDir); os.IsNotExist(err) {
 		return fmt.Errorf("global install dir does not exists")
 	} else if err != nil {
 		return err

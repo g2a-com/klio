@@ -2,10 +2,10 @@ package get
 
 import (
 	"fmt"
-	"github.com/g2a-com/klio/internal/dependency"
 	"strings"
 
 	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/scope"
 	"github.com/spf13/cobra"

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
@@ -34,7 +35,7 @@ type Updates struct {
 
 type Manager struct {
 	DefaultRegistry string
-	registries      map[string]*registry.Registry
+	registries      map[string]registry.Registry
 	context         context.CLIContext
 }
 
@@ -48,9 +49,9 @@ func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Initialize depRegistry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
 		if mgr.registries == nil {
-			mgr.registries = map[string]*registry.Registry{}
+			mgr.registries = map[string]registry.Registry{}
 		}
-		mgr.registries[dep.Registry] = registry.New(dep.Registry)
+		mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
 		if err := mgr.registries[dep.Registry].Update(); err != nil {
 			return Updates{}, err
 		}
@@ -59,16 +60,14 @@ func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Find versions
 	depRegistry := mgr.registries[dep.Registry]
 
-	nonBreaking := depRegistry.FindCompatibleDependency(dependency.Dependency{
-		Registry: dep.Registry,
-		Name:     dep.Name,
-		Version:  fmt.Sprintf("> %s, ^ %s", dep.Version, dep.Version),
-	})
-	breaking := depRegistry.FindCompatibleDependency(dependency.Dependency{
-		Registry: dep.Registry,
-		Name:     dep.Name,
-		Version:  "> " + dep.Version,
-	})
+	nonBreaking, err := depRegistry.GetHighestNonBreaking(dep)
+	if err != nil {
+		log.Debugf("Error while checking non-breaking update: %s", err)
+	}
+	breaking, err := depRegistry.GetHighestBreaking(dep)
+	if err != nil {
+		log.Debugf("Error while checking breaking update: %s", err)
+	}
 
 	// Prepare result
 	updates := Updates{}
@@ -114,16 +113,20 @@ func (mgr *Manager) InstallDependency(dep dependency.Dependency, scope ScopeType
 	// Initialize registry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
 		if mgr.registries == nil {
-			mgr.registries = map[string]*registry.Registry{}
+			mgr.registries = map[string]registry.Registry{}
 		}
-		mgr.registries[dep.Registry] = registry.New(dep.Registry)
+		if strings.HasPrefix(dep.Registry, "file:///") {
+			mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
+		} else {
+			mgr.registries[dep.Registry] = registry.NewRemote(dep.Registry)
+		}
 		if err := mgr.registries[dep.Registry].Update(); err != nil {
 			return nil, err
 		}
 	}
 
 	// Search for a suitable version
-	entry := mgr.registries[dep.Registry].FindCompatibleDependency(dep)
+	entry, _ := mgr.registries[dep.Registry].GetExactMatch(dep)
 	if entry == nil {
 		return nil, fmt.Errorf("cannot find %s@%s in %s", dep.Name, dep.Version, dep.Registry)
 	}

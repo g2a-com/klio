@@ -8,10 +8,9 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/g2a-com/klio/internal/log"
 	"gopkg.in/go-playground/validator.v9"
 	"gopkg.in/yaml.v3"
-
-	"github.com/g2a-com/klio/internal/log"
 )
 
 // Metadata contains context and additional info for configuration files.
