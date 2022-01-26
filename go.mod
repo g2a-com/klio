@@ -9,7 +9,7 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/nightlyone/lockfile v1.0.0
 	github.com/schollz/progressbar/v3 v3.8.5
-	github.com/spf13/afero v1.8.0 // indirect
+	github.com/spf13/afero v1.8.0
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20220126173729-e04a8579fee6 // indirect

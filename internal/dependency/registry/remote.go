@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"reflect"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"gopkg.in/yaml.v3"
@@ -15,16 +13,16 @@ import (
 
 // remote represents registry hosted on http server.
 type remote struct {
-	url   string
-	index Index
-	fs    afero.Fs
+	url    string
+	index  Index
+	client *http.Client
 }
 
 // NewRemote returns new registry instance hosted on http server.
 func NewRemote(registryUrl string) Registry {
 	registry := &remote{
-		url: registryUrl,
-		fs:  afero.NewOsFs(),
+		url:    registryUrl,
+		client: http.DefaultClient,
 	}
 
 	return registry
@@ -35,10 +33,14 @@ func (reg *remote) Update() error {
 
 	var buffer []byte
 
-	res, err := http.Get(reg.url)
+	res, err := reg.client.Get(reg.url)
 	if err != nil {
 		return err
 	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(res.Body)
+
 	if res.StatusCode >= http.StatusMultipleChoices { // 300
 		return fmt.Errorf("artifactory returned response: %s", res.Status)
 	}
@@ -50,11 +52,14 @@ func (reg *remote) Update() error {
 		return err
 	}
 
-	data := Index{}
-	if err := yaml.Unmarshal(buffer, &data); err != nil {
+	emptyIndex := Index{}
+	if err := yaml.Unmarshal(buffer, &reg.index); err != nil {
 		return err
 	}
-	reg.index = data
+
+	if reflect.DeepEqual(reg.index, emptyIndex) {
+		return fmt.Errorf("command registry index was empty or of invalid structure")
+	}
 
 	return nil
 }
