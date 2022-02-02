@@ -3,10 +3,11 @@ package registry
 import (
 	"strings"
 
-	"github.com/g2a-com/klio/internal/dependency"
-	"github.com/g2a-com/klio/internal/log"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
+
+	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/log"
 )
 
 // local represents registry hosted locally.

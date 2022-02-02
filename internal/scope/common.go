@@ -15,11 +15,11 @@ type Scope interface {
 	GetInstalledDependencies() []dependency.Dependency
 }
 
-func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, scope manager.ScopeType) []dependency.Dependency {
+func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, installDir string) []dependency.Dependency {
 	var installedDeps []dependency.Dependency
 
 	for _, dep := range toInstall {
-		installedDep, err := depsMgr.InstallDependency(dep, scope)
+		installedDep, err := depsMgr.InstallDependency(dep, installDir)
 		if err != nil {
 			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
 		}

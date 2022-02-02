@@ -30,6 +30,17 @@ type DependenciesIndexEntry struct {
 	Path     string `json:"path"`
 }
 
+// SetDefaults puts default values for registry for alias and registry (if missing).
+func (dep *Dependency) SetDefaults(defaultRegistry string) {
+	// Fill missing values with defaults
+	if dep.Alias == "" {
+		dep.Alias = dep.Name
+	}
+	if dep.Registry == "" {
+		dep.Registry = defaultRegistry
+	}
+}
+
 // LoadDependenciesIndex reads a dependencies index file.
 func LoadDependenciesIndex(filePath string) (*DependenciesIndex, error) {
 	depConfig := &DependenciesIndex{}

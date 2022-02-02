@@ -10,29 +10,33 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	"github.com/g2a-com/klio/internal/cmd"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
-	"github.com/g2a-com/klio/internal/schema"
-	"github.com/spf13/cobra"
 )
 
-const fiveSeconds = 5 * time.Second
+const (
+	updateTimeout         = 5 * time.Second
+	commandConfigFileName = "command.yaml"
+)
 
-func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dependency.DependenciesIndexEntry, global bool) {
-	if cmd, _, _ := rootCmd.Find([]string{dep.Alias}); cmd != rootCmd {
+func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dependency.DependenciesIndexEntry) {
+	if c, _, _ := rootCmd.Find([]string{dep.Alias}); c != rootCmd {
 		log.Spamf("cannot register already registered command '%s'", dep.Alias)
 		return
 	}
 
-	cmdConfig, err := schema.LoadCommandConfig(filepath.Join(dep.Path, "command.yaml"))
+	cmdConfig, err := cmd.LoadConfig(filepath.Join(dep.Path, commandConfigFileName))
 	if err != nil {
 		log.Warnf("Cannot load command: %s", err)
 		return
 	}
 
-	cmd := &cobra.Command{
+	newCmd := &cobra.Command{
 		Use:                dep.Alias,
 		Short:              cmdConfig.Description,
 		Long:               "",
@@ -66,11 +70,10 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			}
 
 			updateMsgChannel := make(chan string, 1)
-			go getUpdateMessage(ctx, dep, global, updateMsgChannel)
-
+			go getUpdateMessage(ctx, dep, updateMsgChannel)
 			timeoutChannel := make(chan bool, 1)
 			go func() {
-				time.Sleep(fiveSeconds)
+				time.Sleep(updateTimeout)
 				timeoutChannel <- true
 			}()
 
@@ -81,7 +84,6 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			}
 
 			wg.Wait()
-
 			err = externalCmd.Wait()
 
 			select {
@@ -106,24 +108,24 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 		},
 		Version: fmt.Sprintf("%s (registry: %s, arch: %s, os: %s, checksum: %s)", dep.Version, dep.Registry, dep.Arch, dep.OS, dep.Checksum),
 	}
-	rootCmd.AddCommand(cmd)
+	rootCmd.AddCommand(newCmd)
 }
 
-func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEntry, global bool, msg chan<- string) {
-	depMgr := manager.NewManager(ctx)
+func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEntry, msg chan<- string) {
+	depMgr := manager.NewManager()
 
 	getInstallCmd := func(ver string) string {
-		cmd := fmt.Sprintf("%s get", ctx.Config.CommandName)
+		installMsg := fmt.Sprintf("%s get", ctx.Config.CommandName)
 
-		if global {
-			cmd += " -g"
+		if ctx.Paths.IsGlobal(dep.Path) {
+			installMsg += " -g"
 		}
-		cmd += fmt.Sprintf(" %s --version %s --from %s", dep.Name, ver, dep.Registry)
+		installMsg += fmt.Sprintf(" %s --version %s --from %s", dep.Name, ver, dep.Registry)
 		if dep.Name != dep.Alias {
-			cmd += fmt.Sprintf(" --as %s", dep.Alias)
+			installMsg += fmt.Sprintf(" --as %s", dep.Alias)
 		}
 
-		return cmd
+		return installMsg
 	}
 
 	// Check for new version

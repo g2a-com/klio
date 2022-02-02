@@ -21,15 +21,6 @@ func SaveProjectConfig(projectConfig *ProjectConfig) error {
 	return config.SaveConfigFile(projectConfig, projectConfig.Meta.Path)
 }
 
-// LoadCommandConfig reads a project configuration file.
-func LoadCommandConfig(filePath string) (*CommandConfig, error) {
-	commandConfig := &CommandConfig{}
-	if err := config.LoadConfigFile(commandConfig, &commandConfig.Meta, filePath); err != nil {
-		return nil, err
-	}
-	return commandConfig, nil
-}
-
 // CreateDefaultProjectConfig creates default ProjectConfig and save it to give path if it's not already there.
 func CreateDefaultProjectConfig(filePath string) (*ProjectConfig, error) {
 	// create default ProjectConfig
