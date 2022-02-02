@@ -2,14 +2,16 @@ package manager
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/afero"
+	"golang.org/x/term"
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
@@ -17,15 +19,13 @@ import (
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/tarball"
-	"github.com/schollz/progressbar/v3"
-	"golang.org/x/term"
 )
 
-type ScopeType string
-
 const (
-	GlobalScope  ScopeType = "global"
-	ProjectScope ScopeType = "project"
+	indexFileName             = "dependencies.json"
+	indexLockFile             = "dependencies.lock"
+	dependenciesDirectoryName = "dependencies"
+	defaultDirPermissions     = 0o755
 )
 
 type Updates struct {
@@ -36,21 +36,19 @@ type Updates struct {
 type Manager struct {
 	DefaultRegistry string
 	registries      map[string]registry.Registry
-	context         context.CLIContext
+	os              afero.Fs
 }
 
-func NewManager(ctx context.CLIContext) *Manager {
+func NewManager() *Manager {
 	return &Manager{
-		context: ctx,
+		registries: map[string]registry.Registry{},
+		os:         afero.NewOsFs(),
 	}
 }
 
 func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Initialize depRegistry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
-		if mgr.registries == nil {
-			mgr.registries = map[string]registry.Registry{}
-		}
 		mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
 		if err := mgr.registries[dep.Registry].Update(); err != nil {
 			return Updates{}, err
@@ -82,39 +80,20 @@ func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	return updates, nil
 }
 
-func (mgr *Manager) InstallDependency(dep dependency.Dependency, scope ScopeType) (*dependency.Dependency, error) {
-	installDir, err := mgr.getInstallDir(scope)
-	if err != nil {
-		return nil, err
+func (mgr *Manager) InstallDependency(dep dependency.Dependency, installDir string) (*dependency.Dependency, error) {
+	// == Acquire lock for updating dependencies.json ==
+	// make sure main install dir exists (necessary for lockfile setup)
+	if err := mgr.os.MkdirAll(installDir, defaultDirPermissions); err != nil {
+		log.Fatalf("unable to create directory: %s due to %s", installDir, err)
 	}
-	indexPath := filepath.Join(installDir, "dependencies.json")
-	indexLockfilePath := filepath.Join(installDir, "dependencies.lock")
-
-	// Fill missing values
-	if dep.Alias == "" {
-		dep.Alias = dep.Name
-	}
-	if dep.Registry == "" {
-		dep.Registry = mgr.DefaultRegistry
-	}
-
-	// Make sure that install directory exists
-	if _, err := os.Stat(installDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(installDir, 0o755); err != nil {
-			log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", installDir, err)
-		}
-	}
-
-	// Acquire lock for updating dependencies.json
-	if err := lock.Acquire(indexLockfilePath); err != nil {
+	indexLockFilePath := filepath.Join(installDir, indexLockFile)
+	if err := lock.Acquire(indexLockFilePath); err != nil {
 		return nil, err
 	}
 
-	// Initialize registry
+	// == Initialize registry ==
+	dep.SetDefaults(mgr.DefaultRegistry)
 	if _, ok := mgr.registries[dep.Registry]; !ok {
-		if mgr.registries == nil {
-			mgr.registries = map[string]registry.Registry{}
-		}
 		if strings.HasPrefix(dep.Registry, "file:///") {
 			mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
 		} else {
@@ -125,121 +104,105 @@ func (mgr *Manager) InstallDependency(dep dependency.Dependency, scope ScopeType
 		}
 	}
 
-	// Search for a suitable version
-	entry, _ := mgr.registries[dep.Registry].GetExactMatch(dep)
-	if entry == nil {
+	// == Search for a suitable version ==
+	registryEntry, _ := mgr.registries[dep.Registry].GetExactMatch(dep)
+	if registryEntry == nil {
 		return nil, fmt.Errorf("cannot find %s@%s in %s", dep.Name, dep.Version, dep.Registry)
 	}
 
-	// Create temporary file for a tarball
-	file, err := ioutil.TempFile("", "klio-")
+	// == Download tarball to a temporary file ==
+	tempFile, err := afero.TempFile(mgr.os, "", "klio-")
 	if err != nil {
 		return nil, err
 	}
-	defer func(name string) {
-		_ = os.Remove(name)
-	}(file.Name())
-
-	// Download tarball
-	checksum, err := downloadFile(entry.URL, file)
+	defer func() {
+		_ = mgr.os.Remove(tempFile.Name())
+	}()
+	checksum, err := downloadFile(registryEntry.URL, tempFile)
 	if err != nil {
 		return nil, err
 	}
 
-	// Verify checksum
-	if entry.Checksum != "" && entry.Checksum != checksum {
-		return nil, fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, entry.Checksum)
+	// == Verify checksum ==
+	if registryEntry.Checksum != "" && registryEntry.Checksum != checksum {
+		return nil, fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, registryEntry.Checksum)
 	}
 
-	// Make sure that output dir exists and is empty
-	outputRelPath := filepath.Join("dependencies", checksum)
+	// == Prepare directory to install the dependency ==
+	outputRelPath := filepath.Join(dependenciesDirectoryName, checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
-	if _, err := os.Stat(outputAbsPath); err == nil {
-		_ = os.RemoveAll(outputAbsPath)
-	} else if !os.IsNotExist(err) {
-		log.LogfAndExit(log.FatalLevel, "unable to remove directory: %s due to %s", outputAbsPath, err)
+	if err := mgr.os.RemoveAll(outputAbsPath); err != nil {
+		log.Fatalf("unable to remove directory: %s due to %s", outputAbsPath, err)
 	}
-	if err := os.MkdirAll(outputAbsPath, 0o755); err != nil {
-		log.LogfAndExit(log.FatalLevel, "unable to create directory: %s due to %s", outputAbsPath, err)
+	if err := mgr.os.MkdirAll(outputAbsPath, defaultDirPermissions); err != nil {
+		log.Fatalf("unable to create directory: %s due to %s", outputAbsPath, err)
 	}
 
-	// Extract tarball
-	_, _ = file.Seek(0, io.SeekStart)
-	if err := tarball.Extract(file, outputAbsPath); err != nil {
+	// == Extract tarball into the installation directory ==
+	_, _ = tempFile.Seek(0, io.SeekStart)
+	if err := tarball.Extract(tempFile, outputAbsPath); err != nil {
 		return nil, err
 	}
 
-	// Add dependency to dependencies.json
-	index, err := dependency.LoadDependenciesIndex(indexPath)
+	// == Add dependency to dependencies.json ==
+	indexFilePath := filepath.Join(installDir, indexFileName)
+	index, err := dependency.LoadDependenciesIndex(indexFilePath)
 	if err != nil {
 		return nil, err
 	}
-	newEntries := make([]dependency.DependenciesIndexEntry, 0, len(index.Entries))
+	var newEntries []dependency.DependenciesIndexEntry
 	for _, entry := range index.Entries {
 		if entry.Alias != dep.Alias {
 			newEntries = append(newEntries, entry)
 		}
 	}
-	newEntries = append(newEntries, dependency.DependenciesIndexEntry{
+	index.Entries = append(newEntries, dependency.DependenciesIndexEntry{
 		Alias:    dep.Alias,
 		Registry: dep.Registry,
 		Name:     dep.Name,
-		Version:  entry.Version,
-		OS:       entry.OS,
-		Arch:     entry.Arch,
-		Checksum: entry.Checksum,
+		Version:  registryEntry.Version,
+		OS:       registryEntry.OS,
+		Arch:     registryEntry.Arch,
+		Checksum: registryEntry.Checksum,
 		Path:     outputRelPath,
 	})
-	index.Entries = newEntries
 	if err := dependency.SaveDependenciesIndex(index); err != nil {
 		return nil, err
 	}
 
 	// Release lock
-	_ = lock.Release(indexLockfilePath)
+	_ = lock.Release(indexLockFilePath)
 
 	// Return info about installed dependency
-	result := dep
-	result.Version = entry.Version
+	result := dep // TODO: WHY?!
+	result.Version = registryEntry.Version
 
 	return &result, nil
 }
 
-func (mgr *Manager) GetInstalledCommands(scope ScopeType) ([]dependency.DependenciesIndexEntry, error) {
-	installDir, err := mgr.getInstallDir(scope)
-	if err != nil {
-		return []dependency.DependenciesIndexEntry{}, err
-	}
+func GetInstalledCommands(paths context.Paths) []dependency.DependenciesIndexEntry {
+	var entries []dependency.DependenciesIndexEntry
+	discoveredPaths := []string{paths.ProjectInstallDir, paths.GlobalInstallDir}
 
-	indexPath := filepath.Join(installDir, "dependencies.json")
-	indexData, err := dependency.LoadDependenciesIndex(indexPath)
-	if err != nil {
-		return []dependency.DependenciesIndexEntry{}, err
-	}
-
-	// dependencies.json contains relative paths for commands, make them absolute
-	for idx := range indexData.Entries {
-		indexData.Entries[idx].Path = filepath.Join(installDir, indexData.Entries[idx].Path)
-	}
-
-	return indexData.Entries, nil
-}
-
-func (mgr *Manager) getInstallDir(scope ScopeType) (string, error) {
-	switch scope {
-	case GlobalScope:
-		if mgr.context.Paths.GlobalInstallDir == "" {
-			return "", errors.New("cannot find global directory")
+	for _, path := range discoveredPaths {
+		if path == "" {
+			continue
 		}
-		return mgr.context.Paths.GlobalInstallDir, nil
-	case ProjectScope:
-		if mgr.context.Paths.ProjectInstallDir == "" {
-			return "", errors.New("cannot find project directory")
+		indexPath := filepath.Join(path, indexFileName)
+		indexData, err := dependency.LoadDependenciesIndex(indexPath)
+		if err != nil {
+			log.Debugf("can't load dependency indices from %s: %s", path, err)
+			continue
 		}
-		return mgr.context.Paths.ProjectInstallDir, nil
-	default:
-		return "", fmt.Errorf("unknown scope: %s", scope)
+
+		// dependencies.json contains relative paths for commands, make them absolute
+		for _, entry := range indexData.Entries {
+			entry.Path = filepath.Join(path, entry.Path)
+			entries = append(entries, entry)
+		}
 	}
+
+	return entries
 }
 
 func downloadFile(url string, file io.Writer) (checksum string, err error) {
@@ -249,9 +212,9 @@ func downloadFile(url string, file io.Writer) (checksum string, err error) {
 	if err != nil {
 		return "", err
 	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	hash := sha256.New()
 	writer := io.MultiWriter(file, hash)

@@ -1,5 +1,7 @@
 package context
 
+import "strings"
+
 type CLIContext struct {
 	Config CLIConfig
 	Paths  Paths
@@ -30,4 +32,12 @@ func Initialize(cfg CLIConfig) (CLIContext, error) {
 		Config: cfg,
 		Paths:  paths,
 	}, nil
+}
+
+func (p Paths) IsGlobal(testedPath string) bool {
+	return strings.HasPrefix(testedPath, p.GlobalInstallDir)
+}
+
+func (p Paths) IsProject(testedPath string) bool {
+	return strings.HasPrefix(testedPath, p.ProjectInstallDir)
 }

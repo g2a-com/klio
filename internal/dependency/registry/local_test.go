@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"github.com/g2a-com/klio/internal/dependency"
-	"gopkg.in/yaml.v3"
-
 	"github.com/spf13/afero"
+	"gopkg.in/yaml.v3"
 )
 
 var fsPaths = []string{
