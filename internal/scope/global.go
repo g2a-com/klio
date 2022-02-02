@@ -16,15 +16,15 @@ type global struct {
 	os                afero.Fs
 	dependencyManager *manager.Manager
 	installedDeps     []dependency.Dependency
-	GlobalInstallDir  string
+	installDir        string
 }
 
 func NewGlobal(globalInstallDir string) *global {
-	return &global{GlobalInstallDir: globalInstallDir, os: afero.NewOsFs()}
+	return &global{installDir: globalInstallDir, os: afero.NewOsFs()}
 }
 
 func (g *global) ValidatePaths() error {
-	if _, err := g.os.Stat(g.GlobalInstallDir); os.IsNotExist(err) {
+	if _, err := g.os.Stat(g.installDir); os.IsNotExist(err) {
 		return fmt.Errorf("global install dir does not exists")
 	} else if err != nil {
 		return err
@@ -34,7 +34,7 @@ func (g *global) ValidatePaths() error {
 
 func (g *global) Initialize(ctx *context.CLIContext) error {
 	// initialize dependency manager
-	g.dependencyManager = manager.NewManager(*ctx)
+	g.dependencyManager = manager.NewManager()
 	g.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
 
 	return nil
@@ -52,7 +52,7 @@ func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) err
 
 	dep := listOfCommands
 
-	g.installedDeps = installDependencies(g.dependencyManager, dep, manager.GlobalScope)
+	g.installedDeps = installDependencies(g.dependencyManager, dep, g.installDir)
 
 	return nil
 }

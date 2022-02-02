@@ -22,14 +22,14 @@ type local struct {
 	dependencyManager *manager.Manager
 	installedDeps     []dependency.Dependency
 	os                afero.Fs
-	ProjectConfigFile string
-	ProjectInstallDir string
-	NoInit            bool
-	NoSave            bool
+	projectConfigFile string
+	installDir        string
+	noInit            bool
+	noSave            bool
 }
 
 func NewLocal(projectConfigFile string, projectInstallDir string, noInit bool, noSave bool) *local {
-	return &local{ProjectConfigFile: projectConfigFile, ProjectInstallDir: projectInstallDir, NoInit: noInit, NoSave: noSave, os: afero.NewOsFs()}
+	return &local{projectConfigFile: projectConfigFile, installDir: projectInstallDir, noInit: noInit, noSave: noSave, os: afero.NewOsFs()}
 }
 
 func (l *local) ValidatePaths() error {
@@ -38,7 +38,7 @@ func (l *local) ValidatePaths() error {
 		return fmt.Errorf("can't determine current user")
 	}
 
-	projectDir := path.Dir(l.ProjectConfigFile)
+	projectDir := path.Dir(l.projectConfigFile)
 
 	if projectDir == currentUser.HomeDir {
 		return fmt.Errorf("home directory cannot be a project directory")
@@ -52,23 +52,23 @@ func (l *local) ValidatePaths() error {
 }
 
 func (l *local) Initialize(ctx *context.CLIContext) error {
-	if !l.NoInit {
+	if !l.noInit {
 		// make sure install dir exists
-		_ = l.os.MkdirAll(l.ProjectInstallDir, standardDirPermission)
+		_ = l.os.MkdirAll(l.installDir, standardDirPermission)
 
 		// make sure if config file exists
-		if configFile, err := l.os.Stat(l.ProjectConfigFile); os.IsNotExist(err) {
-			_, err = schema.CreateDefaultProjectConfig(l.ProjectConfigFile)
+		if configFile, err := l.os.Stat(l.projectConfigFile); os.IsNotExist(err) {
+			_, err = schema.CreateDefaultProjectConfig(l.projectConfigFile)
 			if err != nil {
 				return err
 			}
 		} else if err == nil && configFile.IsDir() {
-			return fmt.Errorf("can't create config file; path collision with a directory %s", l.ProjectConfigFile)
+			return fmt.Errorf("can't create config file; path collision with a directory %s", l.projectConfigFile)
 		}
 	}
 
 	// initialize dependency manager
-	l.dependencyManager = manager.NewManager(*ctx)
+	l.dependencyManager = manager.NewManager()
 	l.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
 
 	// load project config
@@ -90,9 +90,9 @@ func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) erro
 		return fmt.Errorf("no dependencies provided for the project")
 	}
 
-	l.installedDeps = installDependencies(l.dependencyManager, listOfCommands, manager.ProjectScope)
+	l.installedDeps = installDependencies(l.dependencyManager, listOfCommands, l.installDir)
 
-	if !l.NoSave {
+	if !l.noSave {
 		for _, installedDep := range l.installedDeps {
 			var idx int
 			var projectDep dependency.Dependency
@@ -111,7 +111,7 @@ func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) erro
 		l.projectConfig.DefaultRegistry = l.dependencyManager.DefaultRegistry
 
 		if err := schema.SaveProjectConfig(l.projectConfig); err != nil {
-			return fmt.Errorf("unable to update dependencies in the %s file: %s", l.ProjectConfigFile, err)
+			return fmt.Errorf("unable to update dependencies in the %s file: %s", l.projectConfigFile, err)
 		}
 	}
 
