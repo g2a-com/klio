@@ -2,12 +2,13 @@ package get
 
 import (
 	"fmt"
+	"os"
+	"path"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/schema"
-	"os"
-	"path"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,6 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 	var err error
 	var scope dependency.ScopeType
 	var installedDeps []schema.Dependency
-	var registry string
 
 	depsMgr := dependency.NewManager(ctx)
 	depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
@@ -69,6 +69,7 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 				log.Fatalf("Failed to initialise project in the current dir: %s", err)
 			}
 			depsMgr = dependency.NewManager(ctx)
+			depsMgr.DefaultRegistry = ctx.Config.DefaultRegistry
 		}
 
 		if ctx.Paths.ProjectInstallDir == "" {
@@ -79,9 +80,6 @@ func run(ctx context.CLIContext, opts *options, cmd *cobra.Command, args []strin
 			log.Fatal(err)
 		}
 
-		if registry != "" {
-			registry = opts.From
-		}
 		if projectConfig.DefaultRegistry != "" {
 			depsMgr.DefaultRegistry = projectConfig.DefaultRegistry
 		}
