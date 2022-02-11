@@ -5,20 +5,31 @@ import (
 	"github.com/nightlyone/lockfile"
 )
 
-func Acquire(path string) error {
-	log.Debugf("Acquiring lock: %s", path)
-	l, err := lockfile.New(path)
-	if err != nil {
-		return err
-	}
-	return l.TryLock()
+type Lock interface {
+	Acquire() error
+	Release() error
 }
 
-func Release(path string) error {
-	log.Debugf("Releasing lock: %s", path)
-	l, err := lockfile.New(path)
+type lock struct {
+	lockFile lockfile.Lockfile
+}
+
+func New(lockPath string) (Lock, error) {
+	l, err := lockfile.New(lockPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return l.Unlock()
+	return &lock{lockFile: l}, nil
+}
+
+func (l *lock) Acquire() error {
+	lockOwner, _ := l.lockFile.GetOwner()
+	log.Debugf("acquiring lock for process %d", lockOwner.Pid)
+	return l.lockFile.TryLock()
+}
+
+func (l *lock) Release() error {
+	lockOwner, _ := l.lockFile.GetOwner()
+	log.Debugf("releasing lock for process %d", lockOwner.Pid)
+	return l.lockFile.Unlock()
 }

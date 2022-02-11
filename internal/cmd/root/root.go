@@ -4,12 +4,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	getCommand "github.com/g2a-com/klio/internal/cmd/get"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
+	"github.com/spf13/cobra"
 )
 
 // NewCommand returns root command for a klio.
@@ -43,7 +42,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	}
 
 	// Discover commands
-	commands := manager.GetInstalledCommands(ctx.Paths)
+	commands := manager.NewManager().GetInstalledCommands(ctx.Paths)
 
 	// Register builtin commands
 	rootCommand.AddCommand(getCommand.NewCommand(ctx))
