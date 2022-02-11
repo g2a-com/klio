@@ -19,18 +19,18 @@ func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Depend
 	var installedDeps []dependency.Dependency
 
 	for _, dep := range toInstall {
-		installedDep, err := depsMgr.InstallDependency(dep, installDir)
-		if err != nil {
+
+		if err := depsMgr.InstallDependency(&dep, installDir); err != nil {
 			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
 		}
 
-		if installedDep.Alias == "" {
-			log.Infof("Installed %s@%s from %s", installedDep.Name, installedDep.Version, installedDep.Registry)
+		if dep.Alias == "" {
+			log.Infof("Installed %s@%s from %s", dep.Name, dep.Version, dep.Registry)
 		} else {
-			log.Infof("Installed %s@%s from %s as %s", installedDep.Name, installedDep.Version, installedDep.Registry, installedDep.Alias)
+			log.Infof("Installed %s@%s from %s as %s", dep.Name, dep.Version, dep.Registry, dep.Alias)
 		}
 
-		installedDeps = append(installedDeps, *installedDep)
+		installedDeps = append(installedDeps, dep)
 	}
 
 	return installedDeps

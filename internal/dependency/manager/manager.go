@@ -9,16 +9,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/schollz/progressbar/v3"
-	"github.com/spf13/afero"
-	"golang.org/x/term"
-
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/tarball"
+	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/afero"
+	"golang.org/x/term"
 )
 
 const (
@@ -34,18 +33,30 @@ type Updates struct {
 }
 
 type Manager struct {
-	DefaultRegistry string
-	registries      map[string]registry.Registry
-	os              afero.Fs
+	DefaultRegistry      string
+	registries           map[string]registry.Registry
+	os                   afero.Fs
+	artifactoryClient    *http.Client
+	fetchDependencyIndex func(filePath string) (*dependency.DependenciesIndex, error)
+	saveIndex            func(depConfig *dependency.DependenciesIndex) error
+	createLock           func(string) (lock.Lock, error)
 }
 
+// NewManager returns a new default Manager.
 func NewManager() *Manager {
+
 	return &Manager{
-		registries: map[string]registry.Registry{},
-		os:         afero.NewOsFs(),
+		registries:           map[string]registry.Registry{},
+		os:                   afero.NewOsFs(),
+		fetchDependencyIndex: dependency.LoadDependenciesIndex,
+		saveIndex:            dependency.SaveDependenciesIndex,
+		artifactoryClient:    http.DefaultClient,
+		createLock:           lock.New,
 	}
 }
 
+// GetUpdateFor gets updates for given dependency dep.
+// If error doesn't occur, both major and minor updates are returned.
 func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Initialize depRegistry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
@@ -80,16 +91,22 @@ func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	return updates, nil
 }
 
-func (mgr *Manager) InstallDependency(dep dependency.Dependency, installDir string) (*dependency.Dependency, error) {
+// InstallDependency installs a single dependency in the installDir directory.
+// Dependency metadata is provided in dep.
+func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir string) error {
 	// == Acquire lock for updating dependencies.json ==
 	// make sure main install dir exists (necessary for lockfile setup)
 	if err := mgr.os.MkdirAll(installDir, defaultDirPermissions); err != nil {
 		log.Fatalf("unable to create directory: %s due to %s", installDir, err)
 	}
-	indexLockFilePath := filepath.Join(installDir, indexLockFile)
-	if err := lock.Acquire(indexLockFilePath); err != nil {
-		return nil, err
+	installLock, err := mgr.createLock(filepath.Join(installDir, indexLockFile))
+	if err != nil {
+		return err
 	}
+	if err := installLock.Acquire(); err != nil {
+		return err
+	}
+	defer func() { _ = installLock.Release() }()
 
 	// == Initialize registry ==
 	dep.SetDefaults(mgr.DefaultRegistry)
@@ -100,32 +117,32 @@ func (mgr *Manager) InstallDependency(dep dependency.Dependency, installDir stri
 			mgr.registries[dep.Registry] = registry.NewRemote(dep.Registry)
 		}
 		if err := mgr.registries[dep.Registry].Update(); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// == Search for a suitable version ==
-	registryEntry, _ := mgr.registries[dep.Registry].GetExactMatch(dep)
+	registryEntry, _ := mgr.registries[dep.Registry].GetExactMatch(*dep)
 	if registryEntry == nil {
-		return nil, fmt.Errorf("cannot find %s@%s in %s", dep.Name, dep.Version, dep.Registry)
+		return fmt.Errorf("cannot find %s@%s in %s", dep.Name, dep.Version, dep.Registry)
 	}
 
 	// == Download tarball to a temporary file ==
 	tempFile, err := afero.TempFile(mgr.os, "", "klio-")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() {
 		_ = mgr.os.Remove(tempFile.Name())
 	}()
-	checksum, err := downloadFile(registryEntry.URL, tempFile)
+	checksum, err := downloadFile(mgr.artifactoryClient, registryEntry.URL, tempFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// == Verify checksum ==
 	if registryEntry.Checksum != "" && registryEntry.Checksum != checksum {
-		return nil, fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, registryEntry.Checksum)
+		return fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, registryEntry.Checksum)
 	}
 
 	// == Prepare directory to install the dependency ==
@@ -140,15 +157,15 @@ func (mgr *Manager) InstallDependency(dep dependency.Dependency, installDir stri
 
 	// == Extract tarball into the installation directory ==
 	_, _ = tempFile.Seek(0, io.SeekStart)
-	if err := tarball.Extract(tempFile, outputAbsPath); err != nil {
-		return nil, err
+	if err := tarball.Extract(tempFile, mgr.os, outputAbsPath); err != nil {
+		return err
 	}
 
 	// == Add dependency to dependencies.json ==
 	indexFilePath := filepath.Join(installDir, indexFileName)
-	index, err := dependency.LoadDependenciesIndex(indexFilePath)
+	index, err := mgr.fetchDependencyIndex(indexFilePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var newEntries []dependency.DependenciesIndexEntry
 	for _, entry := range index.Entries {
@@ -156,6 +173,7 @@ func (mgr *Manager) InstallDependency(dep dependency.Dependency, installDir stri
 			newEntries = append(newEntries, entry)
 		}
 	}
+	dep.Version = registryEntry.Version
 	index.Entries = append(newEntries, dependency.DependenciesIndexEntry{
 		Alias:    dep.Alias,
 		Registry: dep.Registry,
@@ -166,21 +184,16 @@ func (mgr *Manager) InstallDependency(dep dependency.Dependency, installDir stri
 		Checksum: registryEntry.Checksum,
 		Path:     outputRelPath,
 	})
-	if err := dependency.SaveDependenciesIndex(index); err != nil {
-		return nil, err
+	if err := mgr.saveIndex(index); err != nil {
+		return err
 	}
 
-	// Release lock
-	_ = lock.Release(indexLockFilePath)
-
-	// Return info about installed dependency
-	result := dep // TODO: WHY?!
-	result.Version = registryEntry.Version
-
-	return &result, nil
+	return nil
 }
 
-func GetInstalledCommands(paths context.Paths) []dependency.DependenciesIndexEntry {
+// GetInstalledCommands returns all the dependencies that are installed locally (both globally and within project scope).
+// paths are the source of global and project install directories.
+func (mgr *Manager) GetInstalledCommands(paths context.Paths) []dependency.DependenciesIndexEntry {
 	var entries []dependency.DependenciesIndexEntry
 	discoveredPaths := []string{paths.ProjectInstallDir, paths.GlobalInstallDir}
 
@@ -189,14 +202,14 @@ func GetInstalledCommands(paths context.Paths) []dependency.DependenciesIndexEnt
 			continue
 		}
 		indexPath := filepath.Join(path, indexFileName)
-		indexData, err := dependency.LoadDependenciesIndex(indexPath)
+		dependencyIndex, err := mgr.fetchDependencyIndex(indexPath)
 		if err != nil {
 			log.Debugf("can't load dependency indices from %s: %s", path, err)
 			continue
 		}
 
 		// dependencies.json contains relative paths for commands, make them absolute
-		for _, entry := range indexData.Entries {
+		for _, entry := range dependencyIndex.Entries {
 			entry.Path = filepath.Join(path, entry.Path)
 			entries = append(entries, entry)
 		}
@@ -205,16 +218,19 @@ func GetInstalledCommands(paths context.Paths) []dependency.DependenciesIndexEnt
 	return entries
 }
 
-func downloadFile(url string, file io.Writer) (checksum string, err error) {
+func downloadFile(artifactoryClient *http.Client, url string, file io.Writer) (checksum string, err error) {
 	log.Verbosef("Downloading %s", url)
 
-	resp, err := http.Get(url)
+	resp, err := artifactoryClient.Get(url)
 	if err != nil {
 		return "", err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("artifactory responded: %s", resp.Status)
+	}
 
 	hash := sha256.New()
 	writer := io.MultiWriter(file, hash)

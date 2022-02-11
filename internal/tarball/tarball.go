@@ -6,6 +6,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"github.com/spf13/afero"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 )
 
 // Extract extracts tar.gz archive into specified directory.
-func Extract(gzipStream io.Reader, outputDir string) error {
+func Extract(gzipStream io.Reader, fs afero.Fs, outputDir string) error {
 	log.Debugf("Start extracting tarball to %s", outputDir)
 
 	uncompressedStream, err := gzip.NewReader(gzipStream)
@@ -41,20 +42,18 @@ func Extract(gzipStream io.Reader, outputDir string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			log.Spamf("Creating directory: %s", path)
-			if err := os.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
+			if err := fs.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
 				return err
 			}
 		case tar.TypeReg:
 			log.Spamf("Creating file: %s", path)
-			outFile, err := os.Create(path)
+			outFile, err := fs.Create(path)
 			if err != nil {
 				return err
 			}
-			defer func(outFile *os.File) {
-				_ = outFile.Close()
-			}(outFile)
+			defer func() { _ = outFile.Close() }()
 			if runtime.GOOS != "windows" {
-				if err = outFile.Chmod(os.FileMode(header.Mode)); err != nil {
+				if err = fs.Chmod(path, os.FileMode(header.Mode)); err != nil {
 					return err
 				}
 			}
