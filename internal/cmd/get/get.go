@@ -69,8 +69,8 @@ func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string)
 		dependencies = []dependency.Dependency{
 			{
 				Name:     args[0],
-				Registry: opts.Version,
-				Version:  opts.From,
+				Registry: opts.From,
+				Version:  opts.Version,
 				Alias:    opts.As,
 			},
 		}
