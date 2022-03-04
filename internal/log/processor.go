@@ -20,6 +20,7 @@ const (
 	EscapeMarkerLogLevel = "klio_log_level"
 	EscapeMarkerTags     = "klio_tags"
 	EscapeMarkerReset    = "klio_reset"
+	EscapeMarkerOff      = "klio_off"
 )
 
 type Processor struct {
@@ -112,6 +113,8 @@ func (lp *Processor) Process() {
 				} else {
 					Spamf("Failed to parse esc sequence while processing logs: invalid log mode: %s", args[0])
 				}
+			case EscapeMarkerOff:
+				break
 			}
 		case chunk == "\n":
 			flush()

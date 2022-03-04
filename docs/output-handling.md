@@ -91,6 +91,15 @@ You can reset mode, log level, and tags to default using `klio_reset` command.
 
 - `\033_klio_reset\033\\` - resets to default settings
 
+## Turning off
+
+You can turn off the output capture in Klio.
+Use it responsibly, in a single klio execution you cannot switch the capture off and back on again.
+
+**Examples**
+
+- `\033_klio_off\033\\` - resets to default settings
+
 ## Escape sequences grammar
 
 ```abnf
@@ -102,6 +111,7 @@ log-level-command = "klio_log_level" space quotation-mark log-level quotation-ma
 tags-command      = "klio_tags" space strings-array
 mode-command      = "klio_mode" space quotation-mark mode quotation-mark
 reset-command     = "klio_reset"
+off-command       = "klio_off"
 
 ; Enums
 log-level = "spam" / "debug" / "verbose" / "info" / "warn" / "error" / "fatal"
