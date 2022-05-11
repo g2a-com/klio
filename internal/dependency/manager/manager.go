@@ -36,7 +36,7 @@ type Manager struct {
 	DefaultRegistry      string
 	registries           map[string]registry.Registry
 	os                   afero.Fs
-	artifactoryClient    *http.Client
+	httpDownloadClient   *http.Client
 	fetchDependencyIndex func(filePath string) (*dependency.DependenciesIndex, error)
 	saveIndex            func(depConfig *dependency.DependenciesIndex) error
 	createLock           func(string) (lock.Lock, error)
@@ -50,7 +50,7 @@ func NewManager() *Manager {
 		os:                   afero.NewOsFs(),
 		fetchDependencyIndex: dependency.LoadDependenciesIndex,
 		saveIndex:            dependency.SaveDependenciesIndex,
-		artifactoryClient:    http.DefaultClient,
+		httpDownloadClient:   http.DefaultClient,
 		createLock:           lock.New,
 	}
 }
@@ -135,7 +135,7 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	defer func() {
 		_ = mgr.os.Remove(tempFile.Name())
 	}()
-	checksum, err := downloadFile(mgr.artifactoryClient, registryEntry.URL, tempFile)
+	checksum, err := downloadFile(mgr.httpDownloadClient, registryEntry.URL, tempFile)
 	if err != nil {
 		return err
 	}
@@ -149,10 +149,10 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	outputRelPath := filepath.Join(dependenciesDirectoryName, checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
 	if err := mgr.os.RemoveAll(outputAbsPath); err != nil {
-		log.Fatalf("unable to remove directory: %s due to %s", outputAbsPath, err)
+		return fmt.Errorf("unable to remove directory: %s due to %s", outputAbsPath, err)
 	}
 	if err := mgr.os.MkdirAll(outputAbsPath, defaultDirPermissions); err != nil {
-		log.Fatalf("unable to create directory: %s due to %s", outputAbsPath, err)
+		return fmt.Errorf("unable to create directory: %s due to %s", outputAbsPath, err)
 	}
 
 	// == Extract tarball into the installation directory ==
