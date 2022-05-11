@@ -266,7 +266,7 @@ func TestManagerInstallDependency(t *testing.T) {
 			mgr := &Manager{
 				DefaultRegistry:      tt.defaultRegistry,
 				registries:           allRegistries,
-				artifactoryClient:    validServer.Client(),
+				httpDownloadClient:   validServer.Client(),
 				os:                   getMockFs(),
 				createLock:           newMockLock,
 				fetchDependencyIndex: fetchDepIndexForRegistryStub,
