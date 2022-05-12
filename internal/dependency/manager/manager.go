@@ -33,25 +33,23 @@ type Updates struct {
 }
 
 type Manager struct {
-	DefaultRegistry      string
-	registries           map[string]registry.Registry
-	os                   afero.Fs
-	httpDownloadClient   *http.Client
-	fetchDependencyIndex func(filePath string) (*dependency.DependenciesIndex, error)
-	saveIndex            func(depConfig *dependency.DependenciesIndex) error
-	createLock           func(string) (lock.Lock, error)
+	DefaultRegistry        string
+	registries             map[string]registry.Registry
+	os                     afero.Fs
+	httpDownloadClient     *http.Client
+	dependencyIndexHandler dependency.IndexHandler
+	createLock             func(string) (lock.Lock, error)
 }
 
 // NewManager returns a new default Manager.
 func NewManager() *Manager {
 
 	return &Manager{
-		registries:           map[string]registry.Registry{},
-		os:                   afero.NewOsFs(),
-		fetchDependencyIndex: dependency.LoadDependenciesIndex,
-		saveIndex:            dependency.SaveDependenciesIndex,
-		httpDownloadClient:   http.DefaultClient,
-		createLock:           lock.New,
+		registries:             map[string]registry.Registry{},
+		os:                     afero.NewOsFs(),
+		dependencyIndexHandler: &dependency.LocalIndexHandler{},
+		httpDownloadClient:     http.DefaultClient,
+		createLock:             lock.New,
 	}
 }
 
@@ -163,28 +161,31 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 
 	// == Add dependency to dependencies.json ==
 	indexFilePath := filepath.Join(installDir, indexFileName)
-	index, err := mgr.fetchDependencyIndex(indexFilePath)
+	err = mgr.dependencyIndexHandler.LoadDependencyIndex(indexFilePath)
 	if err != nil {
 		return err
 	}
 	var newEntries []dependency.DependenciesIndexEntry
-	for _, entry := range index.Entries {
+	for _, entry := range mgr.dependencyIndexHandler.GetEntries() {
 		if entry.Alias != dep.Alias {
 			newEntries = append(newEntries, entry)
 		}
 	}
 	dep.Version = registryEntry.Version
-	index.Entries = append(newEntries, dependency.DependenciesIndexEntry{
-		Alias:    dep.Alias,
-		Registry: dep.Registry,
-		Name:     dep.Name,
-		Version:  registryEntry.Version,
-		OS:       registryEntry.OS,
-		Arch:     registryEntry.Arch,
-		Checksum: registryEntry.Checksum,
-		Path:     outputRelPath,
-	})
-	if err := mgr.saveIndex(index); err != nil {
+
+	mgr.dependencyIndexHandler.SetEntries(
+		append(newEntries, dependency.DependenciesIndexEntry{
+			Alias:    dep.Alias,
+			Registry: dep.Registry,
+			Name:     dep.Name,
+			Version:  registryEntry.Version,
+			OS:       registryEntry.OS,
+			Arch:     registryEntry.Arch,
+			Checksum: registryEntry.Checksum,
+			Path:     outputRelPath,
+		}),
+	)
+	if err := mgr.dependencyIndexHandler.SaveDependencyIndex(); err != nil {
 		return err
 	}
 
@@ -202,14 +203,14 @@ func (mgr *Manager) GetInstalledCommands(paths context.Paths) []dependency.Depen
 			continue
 		}
 		indexPath := filepath.Join(path, indexFileName)
-		dependencyIndex, err := mgr.fetchDependencyIndex(indexPath)
+		err := mgr.dependencyIndexHandler.LoadDependencyIndex(indexPath)
 		if err != nil {
 			log.Debugf("can't load dependency indices from %s: %s", path, err)
 			continue
 		}
 
 		// dependencies.json contains relative paths for commands, make them absolute
-		for _, entry := range dependencyIndex.Entries {
+		for _, entry := range mgr.dependencyIndexHandler.GetEntries() {
 			entry.Path = filepath.Join(path, entry.Path)
 			entries = append(entries, entry)
 		}
