@@ -12,6 +12,17 @@ type Dependency struct {
 	Alias    string `yaml:"-"`
 }
 
+// SetDefaults puts default values for registry for alias and registry (if missing).
+func (dep *Dependency) SetDefaults(defaultRegistry string) {
+	// Fill missing values with defaults
+	if dep.Alias == "" {
+		dep.Alias = dep.Name
+	}
+	if dep.Registry == "" {
+		dep.Registry = defaultRegistry
+	}
+}
+
 type DependenciesIndex struct {
 	Meta       config.Metadata          `json:"-"`
 	APIVersion string                   `json:"apiVersion,omitempty"`
@@ -30,27 +41,39 @@ type DependenciesIndexEntry struct {
 	Path     string `json:"path"`
 }
 
-// SetDefaults puts default values for registry for alias and registry (if missing).
-func (dep *Dependency) SetDefaults(defaultRegistry string) {
-	// Fill missing values with defaults
-	if dep.Alias == "" {
-		dep.Alias = dep.Name
-	}
-	if dep.Registry == "" {
-		dep.Registry = defaultRegistry
-	}
+type IndexHandler interface {
+	LoadDependencyIndex(filePath string) error
+	SaveDependencyIndex() error
+	GetEntries() []DependenciesIndexEntry
+	SetEntries(entries []DependenciesIndexEntry)
 }
 
-// LoadDependenciesIndex reads a dependencies index file.
-func LoadDependenciesIndex(filePath string) (*DependenciesIndex, error) {
+type LocalIndexHandler struct {
+	dependencyIndex *DependenciesIndex
+}
+
+// LoadDependencyIndex reads a dependencies index file.
+func (di *LocalIndexHandler) LoadDependencyIndex(filePath string) error {
 	depConfig := &DependenciesIndex{}
 	if err := config.LoadConfigFile(depConfig, &depConfig.Meta, filePath); err != nil {
-		return nil, err
+		return err
 	}
-	return depConfig, nil
+	di.dependencyIndex = depConfig
+	return nil
 }
 
-// SaveDependenciesIndex saves a dependencies index file.
-func SaveDependenciesIndex(depConfig *DependenciesIndex) error {
-	return config.SaveConfigFile(depConfig, depConfig.Meta.Path)
+// SaveDependencyIndex saves a dependencies index file.
+func (di *LocalIndexHandler) SaveDependencyIndex() error {
+	return config.SaveConfigFile(di.dependencyIndex, di.dependencyIndex.Meta.Path)
+}
+
+func (di *LocalIndexHandler) GetEntries() []DependenciesIndexEntry {
+	if di.dependencyIndex != nil {
+		return di.dependencyIndex.Entries
+	}
+	return []DependenciesIndexEntry{}
+}
+
+func (di *LocalIndexHandler) SetEntries(entries []DependenciesIndexEntry) {
+	di.dependencyIndex.Entries = entries
 }
