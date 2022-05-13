@@ -122,7 +122,7 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	// == Search for a suitable version ==
 	registryEntry, _ := mgr.registries[dep.Registry].GetExactMatch(*dep)
 	if registryEntry == nil {
-		return fmt.Errorf("cannot find %s@%s in %s", dep.Name, dep.Version, dep.Registry)
+		return &CantFindExactVersionMatchError{dep.Name, dep.Version, dep.Registry}
 	}
 
 	// == Download tarball to a temporary file ==
