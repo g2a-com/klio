@@ -1,288 +1,446 @@
 package manager
 
 import (
+	"fmt"
+	"github.com/g2a-com/klio/internal/dependency/registry"
+	"github.com/g2a-com/klio/internal/lock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"io/fs"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
-	"github.com/spf13/afero"
-	"net/http/httptest"
-	"reflect"
-	"testing"
+	"github.com/stretchr/testify/suite"
 )
 
-//==========================================================================================
-//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-//==========================================================================================
-// Take a look at DEP INDEX in utils_test.go
-//==========================================================================================
+const (
+	validProjectInstallPath   = "valid/project/install/path"
+	invalidProjectInstallPath = "some/messed/up/project/path"
 
-func TestGetInstalledCommands(t *testing.T) {
-	tests := []struct {
-		// Name of the test
-		name string
-		// Injected mock function for returning local dependencies
-		fetchIndexFunction func(filePath string) (*dependency.DependenciesIndex, error)
-		// Configuration paths for klio
-		paths context.Paths
-		// Desired index list of dependencies installed
-		want []dependency.DependenciesIndexEntry
-	}{
-		{
-			name:               "errorFromIndex",
-			fetchIndexFunction: fetchInvalidIndex,
-			paths: context.Paths{
-				ProjectInstallDir: validProjectInstallPath,
-				GlobalInstallDir:  validGlobalInstallPath,
-			},
-			want: nil,
-		},
-		{
-			name:               "emptyDirConfig",
-			fetchIndexFunction: fetchInvalidIndex,
-			paths: context.Paths{
-				ProjectInstallDir: "",
-				GlobalInstallDir:  "",
-			},
-			want: nil,
-		},
-		{
-			name:               "simpleValidIndex",
-			fetchIndexFunction: fetchSimpleValidIndex,
-			paths: context.Paths{
-				ProjectInstallDir: validProjectInstallPath,
-				GlobalInstallDir:  validGlobalInstallPath,
-			},
-			want: properlyProcessedValidSimpleIndex,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mgr := &Manager{
-				fetchDependencyIndex: tt.fetchIndexFunction,
-			}
-			if got := mgr.GetInstalledCommands(tt.paths); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetInstalledCommands() = %v, want %v", got, tt.want)
-			}
+	dependencyName = "dosomething"
+)
+
+var localTestDependencyIndexEntries = []string{"first/entry", "second/entry"}
+
+// ============================================
+// =========== TEST SUITE START ===============
+// ============================================
+
+type managerTestingSuite struct {
+	suite.Suite
+	// Dependency Manager
+	mgr *Manager
+
+	// Mock http remote registry
+	RemoteHttpRegistryClient *http.Client
+	// List of all mock registries with predefined mock http servers
+	MockRegistries map[string]registry.Registry
+	// Configuration paths for Klio
+	Paths context.Paths
+	// Default registry to query for dependency
+	DefaultRegistry string
+	// Dependency to get update for
+	DepToUpdate dependency.Dependency
+	// Dependency to install
+	DepToInstall dependency.Dependency
+	//Simulates problems with http server that provides command registry
+	IsDependencyServerFaulty bool
+	//Place to install your dependency
+	InstallDir string
+	//Function providing install lock
+	InstallLock func(string) (lock.Lock, error)
+
+	// Desired list of versions available locally
+	ExpectedDepsInstalledLocally []dependency.DependenciesIndexEntry
+	// Desired list of versions available
+	ExpectedUpdates Updates
+	// Desired dependency structure that was mock installed
+	ExpectedInstalledDependency dependency.Dependency
+	// Flag marking that there is an error while checking for dependencies
+	CheckForUpdatesShouldFailWith error
+	// Flag marking that there is an error while installing a dependency
+	CommandInstallShouldFailWith error
+}
+
+type IndexHandlerError struct{}
+
+func (e *IndexHandlerError) Error() string { return "acquire lock error" }
+
+func (s *managerTestingSuite) SetupTest() {
+	var localTestDependencyIndex []dependency.DependenciesIndexEntry
+	for _, e := range localTestDependencyIndexEntries {
+		localTestDependencyIndex = append(localTestDependencyIndex, dependency.DependenciesIndexEntry{
+			Path: e,
 		})
+	}
+
+	indexHandler := new(mockIndexHandler)
+	indexHandler.On("LoadDependencyIndex", filepath.Join(validProjectInstallPath, "dependencies.json")).Return(nil)
+	indexHandler.On("LoadDependencyIndex", filepath.Join(invalidProjectInstallPath, "dependencies.json")).Return(&IndexHandlerError{})
+	indexHandler.On("GetEntries").Return(localTestDependencyIndex)
+	indexHandler.On("SetEntries", mock.Anything)
+	indexHandler.On("SaveDependencyIndex").Return(nil)
+
+	s.mgr = &Manager{
+		DefaultRegistry:        s.DefaultRegistry,
+		registries:             s.MockRegistries,
+		os:                     getMockFs(),
+		httpDownloadClient:     s.RemoteHttpRegistryClient,
+		dependencyIndexHandler: indexHandler,
+		createLock:             s.InstallLock,
 	}
 }
 
-//==========================================================================================
-//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-//==========================================================================================
-// Take a look at REGISTRY MOCKS in utils_test.go
-//==========================================================================================
+func (s *managerTestingSuite) TestGetInstalledCommands() {
+	listOfLocallyInstalledDeps := s.mgr.GetInstalledCommands(s.Paths)
+	assert.Equal(s.T(), s.ExpectedDepsInstalledLocally, listOfLocallyInstalledDeps)
+}
 
-func TestGetUpdateFor(t *testing.T) {
-	tests := []struct {
-		// Name of the test
-		name string
-		// Dependency to get update for
-		dep dependency.Dependency
-		// Desired list of versions available
-		want Updates
-		// Flag marking that the test should end up with error
-		wantErr bool
-	}{
-		{
-			name: "nonExistentRegistry",
-			dep: dependency.Dependency{
-				Registry: "nonExistent",
-			},
-			want:    Updates{},
-			wantErr: true,
-		},
-		{
-			name: "fetchHighestMalfunction", //non intrusive error
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: noHighestVersionRegistryName,
-				Version:  "2.1.0",
-			},
-			want:    Updates{},
-			wantErr: false,
-		},
-		{
-			name: "fetch2.1.0",
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: regularRegistryName,
-				Version:  "2.1.0",
-			},
-			want:    Updates{"2.1.1", "3.0.0"},
-			wantErr: false,
-		},
-		{
-			name: "fetch2.7.0",
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: regularRegistryName,
-				Version:  "2.7.0",
-			},
-			want:    Updates{"2.7.1", "3.0.0"},
-			wantErr: false,
-		},
-		{
-			name: "fetch3.0.0",
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: regularRegistryName,
-				Version:  "3.0.0",
-			},
-			want:    Updates{"3.0.1", ""},
-			wantErr: false,
-		},
-		{
-			name: "fetch3.1.0",
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: regularRegistryName,
-				Version:  "3.1.0",
-			},
-			want:    Updates{"", ""},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mgr := &Manager{
-				DefaultRegistry: "",
-				registries:      allRegistries,
-				os:              afero.NewMemMapFs(),
-			}
-			got, err := mgr.GetUpdateFor(tt.dep)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetUpdateFor() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetUpdateFor() got = %v, want %v", got, tt.want)
-			}
-		})
+func (s *managerTestingSuite) TestGetUpdateFor() {
+	availableUpdates, err := s.mgr.GetUpdateFor(s.DepToUpdate)
+	if s.CheckForUpdatesShouldFailWith != nil {
+		assert.ErrorContains(s.T(), err, s.CheckForUpdatesShouldFailWith.Error())
+	} else {
+		assert.NoError(s.T(), err)
+		assert.Equal(s.T(), s.ExpectedUpdates, availableUpdates)
 	}
 }
 
-//==========================================================================================
-//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-//==========================================================================================
-// Take a look at REGISTRY SERVER STUB in utils_test.go
-//==========================================================================================
-
-func TestManagerInstallDependency(t *testing.T) {
-	handler := &testHandler{}
-	validServer := httptest.NewServer(handler)
-	defer validServer.Close()
-	invalidChecksumServer := httptest.NewServer(handler)
-	defer invalidChecksumServer.Close()
-
-	//extending registries with a mock http registry
-	allRegistries[validServer.URL] = &mockRegistry{registryURL: validServer.URL}
-	allRegistries[invalidChecksumServer.URL] = &mockRegistry{registryURL: invalidChecksumServer.URL, wrongChecksum: true}
-
-	tests := []struct {
-		// Name of the test
-		name string
-		// Default registry to query for dependency
-		defaultRegistry string
-		// Dependency to install
-		dep dependency.Dependency
-		// Directory to install the dependency in
-		installDir string
-		//function that saves dependency
-		saveFunction func(depConfig *dependency.DependenciesIndex) error
-		// Desired dependency structure that was mock installed
-		want dependency.Dependency
-		// Flag marking that the test should end up with error
-		wantErr bool
-	}{
-		{
-			name:            "validExistingDep",
-			defaultRegistry: validServer.URL,
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: validServer.URL,
-				Version:  secondRegistryStubVersion,
-			},
-			installDir:   validProjectInstallPath,
-			saveFunction: mockSave,
-			want: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: validServer.URL,
-				Version:  secondRegistryStubVersion,
-				Alias:    dependencyName,
-			},
-			wantErr: false,
-		},
-		{
-			name:            "invalidNonexistingDep",
-			defaultRegistry: validServer.URL,
-			dep: dependency.Dependency{
-				Name:     "someNonexistentDep",
-				Registry: validServer.URL,
-				Version:  "2.2.0",
-			},
-			installDir:   validProjectInstallPath,
-			saveFunction: mockSave,
-			wantErr:      true,
-		},
-		{
-			name:            "invalidChecksum",
-			defaultRegistry: invalidChecksumServer.URL,
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: invalidChecksumServer.URL,
-				Version:  "2.2.0",
-			},
-			installDir:   validProjectInstallPath,
-			saveFunction: mockSave,
-			wantErr:      true,
-		},
-		{
-			name:            "deadArtifactory",
-			defaultRegistry: regularRegistryName,
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: regularRegistryName,
-				Version:  "2.2.0",
-			},
-			installDir:   validProjectInstallPath,
-			saveFunction: mockSave,
-			wantErr:      true,
-		},
-		{
-			name:            "messedUpSave",
-			defaultRegistry: validServer.URL,
-			dep: dependency.Dependency{
-				Name:     dependencyName,
-				Registry: validServer.URL,
-				Version:  "2.2.0",
-			},
-			installDir:   validProjectInstallPath,
-			saveFunction: mockMessedUpSave,
-			wantErr:      true,
-		},
+func (s *managerTestingSuite) TestManagerInstallDependency() {
+	depToInstall := s.DepToInstall
+	err := s.mgr.InstallDependency(&depToInstall, s.InstallDir)
+	if s.CommandInstallShouldFailWith != nil {
+		assert.ErrorContains(s.T(), err, s.CommandInstallShouldFailWith.Error())
+	} else {
+		assert.NoError(s.T(), err)
+		assert.Equal(s.T(), s.ExpectedInstalledDependency, depToInstall)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mgr := &Manager{
-				DefaultRegistry:      tt.defaultRegistry,
-				registries:           allRegistries,
-				httpDownloadClient:   validServer.Client(),
-				os:                   getMockFs(),
-				createLock:           newMockLock,
-				fetchDependencyIndex: fetchDepIndexForRegistryStub,
-				saveIndex:            tt.saveFunction,
-			}
-			err := mgr.InstallDependency(&tt.dep, tt.installDir)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("InstallDependency() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if err != nil {
-				t.Logf("error: %s", err)
-			}
-			if !tt.wantErr && !reflect.DeepEqual(tt.dep, tt.want) {
-				t.Errorf("InstallDependency() got = %v, want %v", tt.dep, tt.want)
-			}
+}
+
+// ============================================
+// ============ TEST SUITE END ================
+// ============================================
+
+func TestInstallMinorUpgradeWithIndexHandlerMalfunction(t *testing.T) {
+	remoteHttpRegistry := httptest.NewServer(&testHandler{})
+	defer remoteHttpRegistry.Close()
+
+	depToUpdate := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.0"}
+	depToInstall := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.1"}
+	singleEntry := registry.Entry{
+		Name:    dependencyName,
+		Version: "2.12.1",
+		OS:      "windows",
+		Arch:    "amd64",
+		URL:     fmt.Sprintf("%s/%s/%s.tar.gz", remoteHttpRegistry.URL, "registry/commands", dependencyName),
+	}
+
+	r := new(mockRegistry)
+	r.On("GetHighestBreaking", depToUpdate).Return(&registry.Entry{}, fmt.Errorf("no breaking change avaialable"))
+	r.On("GetHighestNonBreaking", depToUpdate).Return(&singleEntry, nil)
+	r.On("GetExactMatch", depToInstall).Return(&singleEntry, nil)
+	allRegistries := map[string]registry.Registry{
+		remoteHttpRegistry.URL: r,
+	}
+
+	var expectedListOfInstalledCommands []dependency.DependenciesIndexEntry
+
+	mts := managerTestingSuite{
+		Paths:                    context.Paths{ProjectInstallDir: invalidProjectInstallPath},
+		DefaultRegistry:          remoteHttpRegistry.URL,
+		RemoteHttpRegistryClient: remoteHttpRegistry.Client(),
+		MockRegistries:           allRegistries,
+		DepToUpdate:              depToUpdate,
+		DepToInstall:             depToInstall,
+		IsDependencyServerFaulty: false,
+		InstallDir:               invalidProjectInstallPath,
+		InstallLock:              newMockLock,
+
+		ExpectedDepsInstalledLocally: expectedListOfInstalledCommands,
+		ExpectedUpdates:              Updates{NonBreaking: singleEntry.Version, Breaking: ""},
+		ExpectedInstalledDependency: dependency.Dependency{
+			Name:     dependencyName,
+			Registry: remoteHttpRegistry.URL,
+			Version:  "2.12.1",
+			Alias:    dependencyName,
+		},
+		CommandInstallShouldFailWith: &IndexHandlerError{},
+	}
+
+	suite.Run(t, &mts)
+}
+
+func TestInstallMinorUpgradeWithAcquireLockFailing(t *testing.T) {
+	remoteHttpRegistry := httptest.NewServer(&testHandler{})
+	defer remoteHttpRegistry.Close()
+
+	depToUpdate := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.0"}
+	depToInstall := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.1"}
+	singleEntry := registry.Entry{
+		Name:    dependencyName,
+		Version: "2.12.1",
+		OS:      "windows",
+		Arch:    "amd64",
+		URL:     fmt.Sprintf("%s/%s/%s.tar.gz", remoteHttpRegistry.URL, "registry/commands", dependencyName),
+	}
+
+	r := new(mockRegistry)
+	r.On("GetHighestBreaking", depToUpdate).Return(&registry.Entry{}, fmt.Errorf("no breaking change avaialable"))
+	r.On("GetHighestNonBreaking", depToUpdate).Return(&singleEntry, nil)
+	r.On("GetExactMatch", depToInstall).Return(&singleEntry, nil)
+	allRegistries := map[string]registry.Registry{
+		remoteHttpRegistry.URL: r,
+	}
+
+	var expectedListOfInstalledCommands []dependency.DependenciesIndexEntry
+	for _, e := range localTestDependencyIndexEntries {
+		expectedListOfInstalledCommands = append(expectedListOfInstalledCommands, dependency.DependenciesIndexEntry{
+			Path: filepath.Join(validProjectInstallPath, e),
 		})
 	}
+
+	mts := managerTestingSuite{
+		Paths:                    context.Paths{ProjectInstallDir: validProjectInstallPath},
+		DefaultRegistry:          remoteHttpRegistry.URL,
+		RemoteHttpRegistryClient: remoteHttpRegistry.Client(),
+		MockRegistries:           allRegistries,
+		DepToUpdate:              depToUpdate,
+		DepToInstall:             depToInstall,
+		IsDependencyServerFaulty: false,
+		InstallDir:               validProjectInstallPath,
+		InstallLock:              newMockLockFailingToAcquire,
+
+		ExpectedDepsInstalledLocally: expectedListOfInstalledCommands,
+		ExpectedUpdates:              Updates{NonBreaking: singleEntry.Version, Breaking: ""},
+		ExpectedInstalledDependency: dependency.Dependency{
+			Name:     dependencyName,
+			Registry: remoteHttpRegistry.URL,
+			Version:  "2.12.1",
+			Alias:    dependencyName,
+		},
+		CommandInstallShouldFailWith: &AcquireLockError{},
+	}
+
+	suite.Run(t, &mts)
+}
+
+func TestInstallMinorUpgradeInCanonScenario(t *testing.T) {
+	remoteHttpRegistry := httptest.NewServer(&testHandler{})
+	defer remoteHttpRegistry.Close()
+
+	depToUpdate := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.0"}
+	depToInstall := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.1"}
+	singleEntry := registry.Entry{
+		Name:    dependencyName,
+		Version: "2.12.1",
+		OS:      "windows",
+		Arch:    "amd64",
+		URL:     fmt.Sprintf("%s/%s/%s.tar.gz", remoteHttpRegistry.URL, "registry/commands", dependencyName),
+	}
+
+	r := new(mockRegistry)
+	r.On("GetHighestBreaking", depToUpdate).Return(&registry.Entry{}, fmt.Errorf("no breaking change avaialable"))
+	r.On("GetHighestNonBreaking", depToUpdate).Return(&singleEntry, nil)
+	r.On("GetExactMatch", depToInstall).Return(&singleEntry, nil)
+	allRegistries := map[string]registry.Registry{
+		remoteHttpRegistry.URL: r,
+	}
+
+	var expectedListOfInstalledCommands []dependency.DependenciesIndexEntry
+	for _, e := range localTestDependencyIndexEntries {
+		expectedListOfInstalledCommands = append(expectedListOfInstalledCommands, dependency.DependenciesIndexEntry{
+			Path: filepath.Join(validProjectInstallPath, e),
+		})
+	}
+
+	mts := managerTestingSuite{
+		Paths:                    context.Paths{ProjectInstallDir: validProjectInstallPath},
+		DefaultRegistry:          remoteHttpRegistry.URL,
+		RemoteHttpRegistryClient: remoteHttpRegistry.Client(),
+		MockRegistries:           allRegistries,
+		DepToUpdate:              depToUpdate,
+		DepToInstall:             depToInstall,
+		IsDependencyServerFaulty: false,
+		InstallDir:               validProjectInstallPath,
+		InstallLock:              newMockLock,
+
+		ExpectedDepsInstalledLocally: expectedListOfInstalledCommands,
+		ExpectedUpdates:              Updates{NonBreaking: singleEntry.Version, Breaking: ""},
+		ExpectedInstalledDependency: dependency.Dependency{
+			Name:     dependencyName,
+			Registry: remoteHttpRegistry.URL,
+			Version:  "2.12.1",
+			Alias:    dependencyName,
+		},
+	}
+
+	suite.Run(t, &mts)
+}
+
+func TestInstallMajorUpdateWithDefaultRegistryFallbackOnDependency(t *testing.T) {
+	remoteHttpRegistry := httptest.NewServer(&testHandler{})
+	defer remoteHttpRegistry.Close()
+
+	depToUpdate := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.11.2"}
+	depToInstall := dependency.Dependency{Name: dependencyName, Registry: remoteHttpRegistry.URL, Alias: dependencyName, Version: "2.12.1"}
+	singleEntry := registry.Entry{
+		Name:    dependencyName,
+		Version: "2.12.1",
+		OS:      "windows",
+		Arch:    "amd64",
+		URL:     fmt.Sprintf("%s/%s/%s.tar.gz", remoteHttpRegistry.URL, "registry/commands", dependencyName),
+	}
+
+	r := new(mockRegistry)
+	r.On("GetHighestNonBreaking", depToUpdate).Return(&registry.Entry{}, fmt.Errorf("no non-breaking change avaialable"))
+	r.On("GetHighestBreaking", depToUpdate).Return(&singleEntry, nil)
+	r.On("GetExactMatch", depToInstall).Return(&singleEntry, nil)
+	allRegistries := map[string]registry.Registry{
+		remoteHttpRegistry.URL: r,
+	}
+
+	var expectedListOfInstalledCommands []dependency.DependenciesIndexEntry
+	for _, e := range localTestDependencyIndexEntries {
+		expectedListOfInstalledCommands = append(expectedListOfInstalledCommands, dependency.DependenciesIndexEntry{
+			Path: filepath.Join(validProjectInstallPath, e),
+		})
+	}
+
+	mts := managerTestingSuite{
+		Paths:                    context.Paths{ProjectInstallDir: validProjectInstallPath},
+		DefaultRegistry:          "",
+		RemoteHttpRegistryClient: remoteHttpRegistry.Client(),
+		MockRegistries:           allRegistries,
+		DepToUpdate:              depToUpdate,
+		DepToInstall:             depToInstall,
+		IsDependencyServerFaulty: false,
+		InstallDir:               validProjectInstallPath,
+		InstallLock:              newMockLock,
+
+		ExpectedDepsInstalledLocally: expectedListOfInstalledCommands,
+		ExpectedUpdates:              Updates{Breaking: singleEntry.Version, NonBreaking: ""},
+		ExpectedInstalledDependency: dependency.Dependency{
+			Name:     dependencyName,
+			Registry: remoteHttpRegistry.URL,
+			Version:  "2.12.1",
+			Alias:    dependencyName,
+		},
+	}
+
+	suite.Run(t, &mts)
+}
+
+func TestInstallMajorUpdateWithoutDefaultRegistryFallback(t *testing.T) {
+	remoteHttpRegistry := httptest.NewServer(&testHandler{})
+	defer remoteHttpRegistry.Close()
+
+	depToUpdate := dependency.Dependency{Name: dependencyName, Registry: "", Alias: dependencyName, Version: "2.11.2"}
+	depToInstall := dependency.Dependency{Name: dependencyName, Registry: "", Alias: dependencyName, Version: "2.12.1"}
+	singleEntry := registry.Entry{
+		Name:    dependencyName,
+		Version: "2.12.1",
+		OS:      "windows",
+		Arch:    "amd64",
+		URL:     fmt.Sprintf("%s/%s/%s.tar.gz", remoteHttpRegistry.URL, "registry/commands", dependencyName),
+	}
+
+	r := new(mockRegistry)
+	r.On("GetHighestNonBreaking", depToUpdate).Return(&registry.Entry{}, fmt.Errorf("no non-breaking change avaialable"))
+	r.On("GetHighestBreaking", depToUpdate).Return(&singleEntry, nil)
+	r.On("GetExactMatch", depToInstall).Return(&singleEntry, nil)
+	allRegistries := map[string]registry.Registry{
+		remoteHttpRegistry.URL: r,
+	}
+
+	var expectedListOfInstalledCommands []dependency.DependenciesIndexEntry
+	for _, e := range localTestDependencyIndexEntries {
+		expectedListOfInstalledCommands = append(expectedListOfInstalledCommands, dependency.DependenciesIndexEntry{
+			Path: filepath.Join(validProjectInstallPath, e),
+		})
+	}
+
+	mts := managerTestingSuite{
+		Paths:                    context.Paths{ProjectInstallDir: validProjectInstallPath},
+		DefaultRegistry:          "",
+		RemoteHttpRegistryClient: remoteHttpRegistry.Client(),
+		MockRegistries:           allRegistries,
+		DepToUpdate:              depToUpdate,
+		DepToInstall:             depToInstall,
+		IsDependencyServerFaulty: false,
+		InstallDir:               validProjectInstallPath,
+		InstallLock:              newMockLock,
+
+		ExpectedDepsInstalledLocally: expectedListOfInstalledCommands,
+		ExpectedUpdates:              Updates{Breaking: singleEntry.Version, NonBreaking: ""},
+		ExpectedInstalledDependency: dependency.Dependency{
+			Name:     dependencyName,
+			Registry: remoteHttpRegistry.URL,
+			Version:  "2.12.1",
+			Alias:    dependencyName,
+		},
+		CheckForUpdatesShouldFailWith: &fs.PathError{Op: "open", Err: fmt.Errorf(""),
+		},
+		CommandInstallShouldFailWith: &CantFindExactVersionMatchError{dependencyName, "2.12.1", ""},
+	}
+
+	suite.Run(t, &mts)
+}
+
+func TestInstallMajorUpdateWithNonExistentHttpRegistry(t *testing.T) {
+	remoteHttpRegistry := httptest.NewServer(&testHandler{})
+	defer remoteHttpRegistry.Close()
+
+	depToUpdate := dependency.Dependency{Name: dependencyName, Registry: "http://fake.registry.io", Alias: dependencyName, Version: "2.11.2"}
+	depToInstall := dependency.Dependency{Name: dependencyName, Registry: "http://fake.registry.io", Alias: dependencyName, Version: "2.12.1"}
+	singleEntry := registry.Entry{
+		Name:    dependencyName,
+		Version: "2.12.1",
+		OS:      "windows",
+		Arch:    "amd64",
+		URL:     fmt.Sprintf("%s/%s/%s.tar.gz", remoteHttpRegistry.URL, "registry/commands", dependencyName),
+	}
+
+	r := new(mockRegistry)
+	r.On("GetHighestNonBreaking", depToUpdate).Return(&registry.Entry{}, fmt.Errorf("no non-breaking change avaialable"))
+	r.On("GetHighestBreaking", depToUpdate).Return(&singleEntry, nil)
+	r.On("GetExactMatch", depToInstall).Return(&singleEntry, nil)
+	allRegistries := map[string]registry.Registry{
+		remoteHttpRegistry.URL: r,
+	}
+
+	var expectedListOfInstalledCommands []dependency.DependenciesIndexEntry
+	for _, e := range localTestDependencyIndexEntries {
+		expectedListOfInstalledCommands = append(expectedListOfInstalledCommands, dependency.DependenciesIndexEntry{
+			Path: filepath.Join(validProjectInstallPath, e),
+		})
+	}
+
+	mts := managerTestingSuite{
+		Paths:                    context.Paths{ProjectInstallDir: validProjectInstallPath},
+		DefaultRegistry:          remoteHttpRegistry.URL,
+		RemoteHttpRegistryClient: remoteHttpRegistry.Client(),
+		MockRegistries:           allRegistries,
+		DepToUpdate:              depToUpdate,
+		DepToInstall:             depToInstall,
+		IsDependencyServerFaulty: false,
+		InstallDir:               validProjectInstallPath,
+		InstallLock:              newMockLock,
+
+		ExpectedDepsInstalledLocally: expectedListOfInstalledCommands,
+		ExpectedUpdates:              Updates{Breaking: singleEntry.Version, NonBreaking: ""},
+		ExpectedInstalledDependency: dependency.Dependency{
+			Name:     dependencyName,
+			Registry: remoteHttpRegistry.URL,
+			Version:  "2.12.1",
+			Alias:    dependencyName,
+		},
+		CheckForUpdatesShouldFailWith: &fs.PathError{Op: "open", Path: "http://fake.registry.io", Err: fmt.Errorf("")},
+		CommandInstallShouldFailWith:  &CantFindExactVersionMatchError{dependencyName, "2.12.1", "http://fake.registry.io"},
+	}
+
+	suite.Run(t, &mts)
 }
