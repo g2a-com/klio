@@ -9,7 +9,7 @@ import (
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/manager"
-	"github.com/g2a-com/klio/internal/schema"
+	"github.com/g2a-com/klio/internal/project"
 	"github.com/spf13/afero"
 )
 
@@ -18,7 +18,7 @@ const (
 )
 
 type local struct {
-	projectConfig     *schema.ProjectConfig
+	projectConfig     *project.Config
 	dependencyManager *manager.Manager
 	installedDeps     []dependency.Dependency
 	os                afero.Fs
@@ -58,7 +58,7 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 
 		// make sure if config file exists
 		if configFile, err := l.os.Stat(l.projectConfigFile); os.IsNotExist(err) {
-			_, err = schema.CreateDefaultProjectConfig(l.projectConfigFile)
+			_, err = project.CreateDefaultProjectConfig(l.projectConfigFile)
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 
 	// load project config
 	var err error
-	l.projectConfig, err = schema.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
+	l.projectConfig, err = project.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) erro
 
 		l.projectConfig.DefaultRegistry = l.dependencyManager.DefaultRegistry
 
-		if err := schema.SaveProjectConfig(l.projectConfig); err != nil {
+		if err := project.SaveProjectConfig(l.projectConfig); err != nil {
 			return fmt.Errorf("unable to update dependencies in the %s file: %s", l.projectConfigFile, err)
 		}
 	}

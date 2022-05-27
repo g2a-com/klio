@@ -1,4 +1,4 @@
-package schema
+package project
 
 import (
 	"errors"
@@ -8,17 +8,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type GenericConfigFile struct {
-	// Meta stores metadata of the config file (such as a path).
-	Meta config.Metadata `yaml:"-"`
-	// APIVersion can be used to handle more than one config file format
-	APIVersion string `yaml:"apiVersion"`
-	// Kind of the config file
-	Kind string `yaml:"kind"`
-}
-
 // PluginConfig describes structure of klio.yaml files.
-type PluginConfig struct {
+/*type PluginConfig struct {
 	// Meta stores metadata of the config file (such as a path).
 	Meta config.Metadata `yaml:"-"`
 	// APIVersion can be used to handle more than one config file format
@@ -29,30 +20,30 @@ type PluginConfig struct {
 	BinPath string `yaml:"binPath,omitempty" validate:"required,file"`
 	// Description of the command used by core "klio" binary in order to show usage.
 	Description string `yaml:"description,omitempty"`
-}
+}*/
 
-// ProjectConfig describes structure of klio.yaml files.
-type ProjectConfig struct {
+// Config describes structure of klio.yaml files.
+type Config struct {
 	Meta            config.Metadata
 	DefaultRegistry string
 	Dependencies    []dependency.Dependency
 	yaml            *yaml.Node
 }
 
-func NewDefaultProjectConfig() *ProjectConfig {
-	projectConfig := ProjectConfig{}
+func NewDefaultConfig() *Config {
+	projectConfig := Config{}
 
-	_ = projectConfig.UnmarshalYAML(minimalKlioFile())
+	_ = projectConfig.UnmarshalYAML(minimalConfig())
 
 	return &projectConfig
 }
 
-func (p ProjectConfig) MarshalYAML() (interface{}, error) {
+func (p Config) MarshalYAML() (interface{}, error) {
 	var defaultRegistryValueNode *yaml.Node
 	var dependenciesValueNode *yaml.Node
 
 	if p.yaml == nil {
-		return minimalKlioFile(), nil
+		return minimalConfig(), nil
 	}
 
 	// Find nodes to encode
@@ -106,7 +97,7 @@ func (p ProjectConfig) MarshalYAML() (interface{}, error) {
 	return p.yaml, nil
 }
 
-func minimalKlioFile() *yaml.Node {
+func minimalConfig() *yaml.Node {
 	return &yaml.Node{
 		Kind: yaml.MappingNode,
 		Tag:  "!!map",
@@ -124,7 +115,7 @@ func minimalKlioFile() *yaml.Node {
 	}
 }
 
-func (p *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
+func (p *Config) UnmarshalYAML(node *yaml.Node) error {
 	if node.Tag != "!!map" {
 		return errors.New("invalid format")
 	}
