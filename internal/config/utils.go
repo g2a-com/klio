@@ -19,6 +19,15 @@ type Metadata struct {
 	Exists bool
 }
 
+type GenericConfigFile struct {
+	// Meta stores metadata of the config file (such as a path).
+	Meta Metadata `yaml:"-"`
+	// APIVersion can be used to handle more than one config file format
+	APIVersion string `yaml:"apiVersion"`
+	// Kind of the config file
+	Kind string `yaml:"kind"`
+}
+
 // LoadConfigFile reads, parses and validates specified configuration file.
 func LoadConfigFile(dataStruct interface{}, meta *Metadata, configFilePath string) error {
 	log.Spamf(`Loading file "%s"...`, configFilePath)
