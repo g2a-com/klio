@@ -1,4 +1,4 @@
-package schema
+package project
 
 import (
 	"io/ioutil"
@@ -14,12 +14,12 @@ func TestCreateDefaultProjectConfig(t *testing.T) {
 		t.Fatalf("can't create temporary directory: %s", err)
 	}
 
-	defaultProjectConfig := NewDefaultProjectConfig()
+	defaultProjectConfig := NewDefaultConfig()
 
 	// create temporary file to test error on existing file
 	existingKlioFileName := "existing-klio.yaml"
 	existingKlioFileNameAbsPath := path.Join(dir, existingKlioFileName)
-	defer os.RemoveAll(existingKlioFileNameAbsPath)
+	defer func() { _ = os.RemoveAll(existingKlioFileNameAbsPath) }()
 
 	_, err = os.Create(path.Join(dir, existingKlioFileName))
 	if err != nil {
@@ -32,7 +32,7 @@ func TestCreateDefaultProjectConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *ProjectConfig
+		want    *Config
 		wantErr bool
 	}{
 		{
@@ -55,7 +55,7 @@ func TestCreateDefaultProjectConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filePath := path.Join(dir, tt.args.filePath)
-			defer os.Remove(filePath)
+			defer func() { _ = os.Remove(filePath) }()
 
 			_, err := CreateDefaultProjectConfig(filePath)
 			if (err != nil) != tt.wantErr {
