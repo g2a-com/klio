@@ -1,33 +1,113 @@
 package log
 
 import (
+	"fmt"
 	"io"
+	"os"
 
 	"github.com/kataras/pio"
 )
 
 type Logger struct {
-	Level   Level
-	Printer *pio.Printer
-	Output  io.Writer
+	level   Level
+	printer *pio.Printer
+	output  io.Writer
 }
 
 func NewLogger(output io.Writer) *Logger {
 	return &Logger{
-		Level:   DefaultLevel,
-		Printer: pio.NewPrinter("line", output).Marshal(newMarshaler(pio.SupportColors(output))),
-		Output:  output,
+		level:   DefaultLevel,
+		printer: pio.NewPrinter("line", output).Marshal(newMessageMarshaler(pio.SupportColors(output))),
+		output:  output,
 	}
 }
 
-func (l *Logger) Print(message *Message) {
-	if message.Level <= l.Level {
-		l.Printer.Print(message)
+// Fatal `os.Exit(1)` exit no matter the level of the logger.
+// If the logger's level is fatal, error, warn, info, verbose debug or spam
+// then it will print the log message too.
+func (l *Logger) Fatal(v ...interface{}) {
+	l.log(FatalLevel, v...)
+	os.Exit(1)
+}
+
+// Fatalf will `os.Exit(1)` no matter the level of the logger.
+// If the logger's level is fatal, error, warn, info, verbose debug or spam
+// then it will print the log message too.
+func (l *Logger) Fatalf(format string, args ...interface{}) {
+	l.logf(FatalLevel, format, args...)
+	os.Exit(1)
+}
+
+// Error will print only when logger's Level is error, warn, info, verbose, debug or spam.
+func (l *Logger) Error(v ...interface{}) {
+	l.log(ErrorLevel, v...)
+}
+
+// Errorf will print only when logger's Level is error, warn, info, verbose, debug or spam.
+func (l *Logger) Errorf(format string, args ...interface{}) {
+	l.logf(ErrorLevel, format, args...)
+}
+
+// Warn will print only when logger's Level is warn, info, verbose, debug or spam.
+func (l *Logger) Warn(v ...interface{}) {
+	l.log(WarnLevel, v...)
+}
+
+// Warnf will print only when logger's Level is warn, info, verbose, debug or spam.
+func (l *Logger) Warnf(format string, args ...interface{}) {
+	l.logf(WarnLevel, format, args...)
+}
+
+// Info will print only when logger's Level is info, verbose, debug or spam.
+func (l *Logger) Info(v ...interface{}) {
+	l.log(InfoLevel, v...)
+}
+
+// Infof will print only when logger's Level is info, verbose, debug or spam.
+func (l *Logger) Infof(format string, args ...interface{}) {
+	l.logf(InfoLevel, format, args...)
+}
+
+// Verbose will print only when logger's Level is verbose, debug or spam.
+func (l *Logger) Verbose(v ...interface{}) {
+	l.log(VerboseLevel, v...)
+}
+
+// Verbosef will print only when logger's Level is verbose, debug or spam.
+func (l *Logger) Verbosef(format string, args ...interface{}) {
+	l.logf(VerboseLevel, format, args...)
+}
+
+// Debug will print only when logger's Level is debug or spam.
+func (l *Logger) Debug(v ...interface{}) {
+	l.log(DebugLevel, v...)
+}
+
+// Debugf will print only when logger's Level is debug or spam.
+func (l *Logger) Debugf(format string, args ...interface{}) {
+	l.logf(DebugLevel, format, args...)
+}
+
+// Spam will print when logger's Level is spam.
+func (l *Logger) Spam(v ...interface{}) {
+	l.log(SpamLevel, v...)
+}
+
+// Spamf will print when logger's Level is spam.
+func (l *Logger) Spamf(format string, args ...interface{}) {
+	l.logf(SpamLevel, format, args...)
+}
+
+// log prints message with specified level.
+func (l *Logger) log(level Level, v ...interface{}) {
+	if level <= l.level {
+		_, _ = l.printer.Println(message{Level: level, Text: fmt.Sprint(v...)})
 	}
 }
 
-func (l *Logger) Println(message *Message) {
-	if message.Level <= l.Level {
-		l.Printer.Println(message)
+// logf prints message with specified level.
+func (l *Logger) logf(level Level, format string, args ...interface{}) {
+	if level <= l.level {
+		_, _ = l.printer.Println(message{Level: level, Text: fmt.Sprintf(format, args...)})
 	}
 }

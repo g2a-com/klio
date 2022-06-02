@@ -21,7 +21,7 @@ func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Depend
 	for _, dep := range toInstall {
 
 		if err := depsMgr.InstallDependency(&dep, installDir); err != nil {
-			log.LogfAndExit(log.FatalLevel, "Failed to install %s@%s: %s", dep.Name, dep.Version, err)
+			log.Fatalf("Failed to install %s@%s: %s", dep.Name, dep.Version, err)
 		}
 
 		if dep.Alias == "" {
