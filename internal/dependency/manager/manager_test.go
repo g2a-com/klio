@@ -2,15 +2,16 @@ package manager
 
 import (
 	"fmt"
-	"github.com/g2a-com/klio/internal/dependency/registry"
-	"github.com/g2a-com/klio/internal/lock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+
+	"github.com/g2a-com/klio/internal/dependency/registry"
+	"github.com/g2a-com/klio/internal/lock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
@@ -47,11 +48,11 @@ type managerTestingSuite struct {
 	DepToUpdate dependency.Dependency
 	// Dependency to install
 	DepToInstall dependency.Dependency
-	//Simulates problems with http server that provides command registry
+	// Simulates problems with http server that provides command registry
 	IsDependencyServerFaulty bool
-	//Place to install your dependency
+	// Place to install your dependency
 	InstallDir string
-	//Function providing install lock
+	// Function providing install lock
 	InstallLock func(string) (lock.Lock, error)
 
 	// Desired list of versions available locally
@@ -382,7 +383,8 @@ func TestInstallMajorUpdateWithoutDefaultRegistryFallback(t *testing.T) {
 			Version:  "2.12.1",
 			Alias:    dependencyName,
 		},
-		CheckForUpdatesShouldFailWith: &fs.PathError{Op: "open", Err: fmt.Errorf(""),
+		CheckForUpdatesShouldFailWith: &fs.PathError{
+			Op: "open", Err: fmt.Errorf(""),
 		},
 		CommandInstallShouldFailWith: &CantFindExactVersionMatchError{dependencyName, "2.12.1", ""},
 	}

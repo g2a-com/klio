@@ -43,7 +43,6 @@ type Manager struct {
 
 // NewManager returns a new default Manager.
 func NewManager() *Manager {
-
 	return &Manager{
 		registries:             map[string]registry.Registry{},
 		os:                     afero.NewOsFs(),

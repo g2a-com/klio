@@ -6,11 +6,12 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
-	"github.com/spf13/afero"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/spf13/afero"
 
 	"github.com/g2a-com/klio/internal/log"
 )

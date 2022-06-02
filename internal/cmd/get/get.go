@@ -28,8 +28,8 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 		Use:   "get [command name]",
 		Short: "Install new commands",
 		Long:  fmt.Sprintf("Get (%s get) will install command to use with %s.", ctx.Config.CommandName, ctx.Config.CommandName),
-		Run: func(cmd *cobra.Command, args []string) {
-			run(ctx, opts, cmd, args)
+		Run: func(_ *cobra.Command, args []string) {
+			get(ctx, opts, args)
 		},
 	}
 
@@ -43,7 +43,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func run(ctx context.CLIContext, opts *options, _ *cobra.Command, args []string) {
+func get(ctx context.CLIContext, opts *options, args []string) {
 	var getScope scope.Scope
 
 	if opts.Global {
