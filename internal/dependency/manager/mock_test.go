@@ -2,13 +2,14 @@ package manager
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/mock"
-	"io"
-	"net/http"
 )
 
 //===========================  INDEX HANDLER MOCK ===========================
@@ -76,7 +77,7 @@ func (th *testHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//hard dependency in resources
+	// hard dependency in resources
 	file, err := afero.NewOsFs().Open(fmt.Sprintf("%s.tar.gz", dependencyName))
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
@@ -108,6 +109,7 @@ func newMockLock(_ string) (lock.Lock, error) {
 	ml.On("Release")
 	return ml, nil
 }
+
 func newMockLockFailingToAcquire(_ string) (lock.Lock, error) {
 	ml := &mockLock{FailingAcquire: true}
 	ml.On("Acquire")
