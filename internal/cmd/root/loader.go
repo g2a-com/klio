@@ -89,7 +89,7 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			case msg := <-updateMsgChannel:
 				if msg != "" {
 					for _, line := range strings.Split(msg, "\n") {
-						log.ErrorLogger.Println(&log.Message{Level: log.WarnLevel, Text: line})
+						log.ErrorLogger.Warn(line)
 					}
 				}
 			case <-timeoutChannel:
@@ -133,7 +133,7 @@ func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEn
 		log.Warn(err)
 	}
 
-	// Message
+	// message
 	if update.NonBreaking == "" && update.Breaking == "" {
 		msg <- ""
 	} else if update.NonBreaking != "" {
@@ -154,20 +154,14 @@ func setupLogProcessor(cmd *exec.Cmd, wg *sync.WaitGroup) {
 	}
 
 	wg.Add(1)
-	stdoutLogProcessor := log.NewLogProcessor()
-	stdoutLogProcessor.DefaultLevel = log.InfoLevel
-	stdoutLogProcessor.Input = stdoutPipe
-	stdoutLogProcessor.Logger = log.DefaultLogger
+	stdoutLogProcessor := log.NewProcessor(log.InfoLevel, log.DefaultLogger, stdoutPipe)
 	go func() {
 		stdoutLogProcessor.Process()
 		wg.Done()
 	}()
 
 	wg.Add(1)
-	stderrLogProcessor := log.NewLogProcessor()
-	stderrLogProcessor.DefaultLevel = log.ErrorLevel
-	stderrLogProcessor.Input = stderrPipe
-	stderrLogProcessor.Logger = log.ErrorLogger
+	stderrLogProcessor := log.NewProcessor(log.ErrorLevel, log.ErrorLogger, stderrPipe)
 	go func() {
 		stderrLogProcessor.Process()
 		wg.Done()

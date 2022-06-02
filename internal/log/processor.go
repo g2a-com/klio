@@ -23,32 +23,33 @@ const (
 )
 
 type Processor struct {
-	DefaultLevel Level
-	DefaultMode  Mode
-	Input        io.Reader
-	Logger       *Logger
+	defaultLevel Level
+	defaultMode  Mode
+	input        io.Reader
+	logger       *Logger
 }
 
-func NewLogProcessor() *Processor {
+func NewProcessor(DefaultLevel Level, Logger *Logger, Input io.Reader) *Processor {
 	return &Processor{
-
-		DefaultLevel: InfoLevel,
-		DefaultMode:  lineMode,
+		defaultLevel: DefaultLevel,
+		logger:       Logger,
+		input:        Input,
+		defaultMode:  lineMode,
 	}
 }
 
 func (lp *Processor) Process() {
-	scanner := bufio.NewScanner(lp.Input)
+	scanner := bufio.NewScanner(lp.input)
 	scanner.Split(scanLinesAndKlioEscCodes)
 
-	level := lp.DefaultLevel
+	level := lp.defaultLevel
 	var tags []string
 	line := ""
-	mode := lp.DefaultMode
+	mode := lp.defaultMode
 
 	flush := func() {
 		if line != "" {
-			lp.Logger.Println(&Message{
+			_, _ = lp.logger.printer.Print(&message{
 				Level: level,
 				Tags:  tags,
 				Text:  line,
@@ -61,7 +62,7 @@ func (lp *Processor) Process() {
 		chunk := scanner.Text()
 
 		if mode == rawMode && !isEscCode(chunk) {
-			_, _ = lp.Logger.Output.Write([]byte(chunk))
+			_, _ = lp.logger.output.Write([]byte(chunk))
 			continue
 		}
 
@@ -81,7 +82,7 @@ func (lp *Processor) Process() {
 
 			switch cmd {
 			case EscapeMarkerLogLevel:
-				newLevel, ok := LevelsByName[args[0]]
+				newLevel, ok := levelsByName[args[0]]
 				if ok {
 					if newLevel != level {
 						flush()
@@ -97,9 +98,9 @@ func (lp *Processor) Process() {
 					tags = newTags
 				}
 			case EscapeMarkerReset:
-				if len(tags) == 0 || level != lp.DefaultLevel {
+				if len(tags) == 0 || level != lp.defaultLevel {
 					flush()
-					level = lp.DefaultLevel
+					level = lp.defaultLevel
 					tags = []string{}
 				}
 			case EscapeMarkerMode:
