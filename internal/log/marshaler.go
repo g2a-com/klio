@@ -8,21 +8,27 @@ import (
 	"github.com/kataras/pio"
 )
 
+type message struct {
+	Level Level
+	Tags  []string
+	Text  string
+}
+
 type messageMarshaler struct {
 	SupportColors bool
 }
 
-func newMarshaler(supportColors bool) messageMarshaler {
+func newMessageMarshaler(supportColors bool) messageMarshaler {
 	return messageMarshaler{
 		SupportColors: supportColors,
 	}
 }
 
 func (m messageMarshaler) Marshal(data interface{}) ([]byte, error) {
-	msg, ok := data.(*Message)
+	msg, ok := data.(*message)
 
 	if !ok {
-		return []byte{}, errors.New("not a *Message")
+		return []byte{}, errors.New("not a *message")
 	}
 
 	level := levels[msg.Level]

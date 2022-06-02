@@ -45,8 +45,8 @@ const MaxLevel = SpamLevel
 // LevelNames contains all supported names of logging levels.
 var LevelNames = []string{"disable", "fatal", "error", "warn", "info", "verbose", "debug", "spam"}
 
-// LevelsByName maps level names to golog.Level type.
-var LevelsByName = map[string]Level{
+// levelsByName maps level names to golog.level type.
+var levelsByName = map[string]Level{
 	"disable": DisableLevel,
 	"fatal":   FatalLevel,
 	"error":   ErrorLevel,

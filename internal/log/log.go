@@ -1,7 +1,6 @@
 package log
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -15,72 +14,46 @@ var (
 
 // SetLevel sets minimum level for logs, logs with level above specified value will not be printed.
 func SetLevel(levelName string) {
-	level, ok := LevelsByName[levelName]
+	level, ok := levelsByName[levelName]
 	if ok {
-		DefaultLogger.Level = level
-		ErrorLogger.Level = level
+		DefaultLogger.level = level
+		ErrorLogger.level = level
 	} else {
-		DefaultLogger.Level = DefaultLevel
-		ErrorLogger.Level = level
+		DefaultLogger.level = DefaultLevel
+		ErrorLogger.level = level
 	}
 }
-
-// // SetOutput
-// func SetOutput(w io.Writer) {
-// 	logger.SetOutput(w)
-// }
 
 // GetDefaultLevel returns default logging level name.
 func GetDefaultLevel() string {
 	return levels[DefaultLevel].Name
 }
 
-// SetLevelFromEnv sets minimum level for logs based on environment variables.
-func SetLevelFromEnv() {
-	SetLevel(os.Getenv("KLIO_CLI_LOG_LEVEL"))
-}
-
 // GetLevel returns current logging level name.
 func GetLevel() string {
-	return levels[DefaultLogger.Level].Name
+	return levels[DefaultLogger.level].Name
 }
 
 // IncreaseLevel changes current level by specified number.
 func IncreaseLevel(levels int) {
-	if DefaultLogger.Level+Level(levels) > MaxLevel {
-		DefaultLogger.Level = MaxLevel
+	if DefaultLogger.level+Level(levels) > MaxLevel {
+		DefaultLogger.level = MaxLevel
 	} else {
-		DefaultLogger.Level = DefaultLogger.Level + Level(levels)
+		DefaultLogger.level = DefaultLogger.level + Level(levels)
 	}
 
-	if ErrorLogger.Level+Level(levels) > MaxLevel {
-		ErrorLogger.Level = MaxLevel
+	if ErrorLogger.level+Level(levels) > MaxLevel {
+		ErrorLogger.level = MaxLevel
 	} else {
-		ErrorLogger.Level = ErrorLogger.Level + Level(levels)
+		ErrorLogger.level = ErrorLogger.level + Level(levels)
 	}
-}
-
-// Print prints a log message without levels and colors.
-func Print(v ...interface{}) {
-	DefaultLogger.Print(&Message{
-		Text: fmt.Sprint(v...),
-	})
-}
-
-// Println prints a log message without levels and colors.
-// It adds a new line at the end.
-func Println(v ...interface{}) {
-	DefaultLogger.Println(&Message{
-		Text: fmt.Sprint(v...),
-	})
 }
 
 // Fatal `os.Exit(1)` exit no matter the level of the logger.
 // If the logger's level is fatal, error, warn, info, verbose debug or spam
 // then it will print the log message too.
 func Fatal(v ...interface{}) {
-	Log(FatalLevel, v...)
-	// TODO: flush?
+	DefaultLogger.Fatal(v...)
 	os.Exit(1)
 }
 
@@ -88,97 +61,66 @@ func Fatal(v ...interface{}) {
 // If the logger's level is fatal, error, warn, info, verbose debug or spam
 // then it will print the log message too.
 func Fatalf(format string, args ...interface{}) {
-	Logf(FatalLevel, format, args...)
-	// TODO: flush?
+	DefaultLogger.Fatalf(format, args...)
 	os.Exit(1)
 }
 
 // Error will print only when logger's Level is error, warn, info, verbose, debug or spam.
 func Error(v ...interface{}) {
-	Log(ErrorLevel, v...)
+	DefaultLogger.Error(v...)
 }
 
 // Errorf will print only when logger's Level is error, warn, info, verbose, debug or spam.
 func Errorf(format string, args ...interface{}) {
-	Logf(ErrorLevel, format, args...)
+	DefaultLogger.Errorf(format, args...)
 }
 
 // Warn will print only when logger's Level is warn, info, verbose, debug or spam.
 func Warn(v ...interface{}) {
-	Log(WarnLevel, v...)
+	DefaultLogger.Warn(v...)
 }
 
 // Warnf will print only when logger's Level is warn, info, verbose, debug or spam.
 func Warnf(format string, args ...interface{}) {
-	Logf(WarnLevel, format, args...)
+	DefaultLogger.Warnf(format, args...)
 }
 
 // Info will print only when logger's Level is info, verbose, debug or spam.
 func Info(v ...interface{}) {
-	Log(InfoLevel, v...)
+	DefaultLogger.Info(v...)
 }
 
 // Infof will print only when logger's Level is info, verbose, debug or spam.
 func Infof(format string, args ...interface{}) {
-	Logf(InfoLevel, format, args...)
+	DefaultLogger.Infof(format, args...)
 }
 
 // Verbose will print only when logger's Level is verbose, debug or spam.
 func Verbose(v ...interface{}) {
-	Log(VerboseLevel, v...)
+	DefaultLogger.Verbose(v...)
 }
 
 // Verbosef will print only when logger's Level is verbose, debug or spam.
 func Verbosef(format string, args ...interface{}) {
-	Logf(VerboseLevel, format, args...)
+	DefaultLogger.Verbosef(format, args...)
 }
 
 // Debug will print only when logger's Level is debug or spam.
 func Debug(v ...interface{}) {
-	Log(DebugLevel, v...)
+	DefaultLogger.Debug(v...)
 }
 
 // Debugf will print only when logger's Level is debug or spam.
 func Debugf(format string, args ...interface{}) {
-	Logf(DebugLevel, format, args...)
+	DefaultLogger.Debugf(format, args...)
 }
 
 // Spam will print when logger's Level is spam.
 func Spam(v ...interface{}) {
-	Log(SpamLevel, v...)
+	DefaultLogger.Spam(v...)
 }
 
 // Spamf will print when logger's Level is spam.
 func Spamf(format string, args ...interface{}) {
-	Logf(SpamLevel, format, args...)
-}
-
-// Log prints message with specified level.
-func Log(level Level, v ...interface{}) {
-	DefaultLogger.Println(&Message{
-		Level: level,
-		Text:  fmt.Sprint(v...),
-	})
-}
-
-// Logf prints message with specified level.
-func Logf(level Level, format string, args ...interface{}) {
-	DefaultLogger.Println(&Message{
-		Level: level,
-		Text:  fmt.Sprintf(format, args...),
-	})
-}
-
-// LogAndExit prints message with specified level and calls os.Exit(1).
-func LogAndExit(level Level, v ...interface{}) {
-	Log(level, v...)
-	// TODO: flush?
-	os.Exit(1)
-}
-
-// LogfAndExit prints message with specified level and calls os.Exit(1).
-func LogfAndExit(level Level, format string, args ...interface{}) {
-	Logf(level, format, args...)
-	// TODO: flush?
-	os.Exit(1)
+	DefaultLogger.Spamf(format, args...)
 }
