@@ -49,7 +49,7 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep sch
 			var wg sync.WaitGroup
 
 			switch cmdConfig.APIVersion {
-			case "g2a-cli/v1beta1":
+			case "g2a-cli/v1beta1", "g2a-cli/v1beta2", "g2a-cli/v1beta3", "g2a-cli/v1beta4":
 				externalCmd.Stdout = os.Stdout
 				externalCmd.Stderr = os.Stderr
 			case "klio/v1":
