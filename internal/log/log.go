@@ -20,7 +20,7 @@ func SetLevel(levelName string) {
 		ErrorLogger.level = level
 	} else {
 		DefaultLogger.level = DefaultLevel
-		ErrorLogger.level = level
+		ErrorLogger.level = DefaultErrorLevel
 	}
 }
 

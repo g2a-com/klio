@@ -23,23 +23,18 @@ func SaveProjectConfig(projectConfig *Config) error {
 
 // CreateDefaultProjectConfig creates default Config and save it to give path if it's not already there.
 func CreateDefaultProjectConfig(filePath string) (*Config, error) {
-	// create default Config
 	projectConfig := NewDefaultConfig()
-
-	// marshal newly created Config
 	marshaledProjectConfig, err := projectConfig.MarshalYAML()
 	if err != nil {
 		return projectConfig, fmt.Errorf("failed to marshal: %s", err)
 	}
 
-	// check if file already exists, if so return error
 	_, err = os.Stat(filePath)
 	isFileNotExist := os.IsNotExist(err)
 	if !isFileNotExist {
 		return projectConfig, fmt.Errorf("failed to create klio.yaml file, it already exists at %s", filePath)
 	}
 
-	// save Config
 	err = config.SaveConfigFile(marshaledProjectConfig, filePath)
 	if err != nil {
 		return projectConfig, fmt.Errorf("failed to save file in %s because of: %s", filePath, err)

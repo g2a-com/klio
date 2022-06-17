@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Options for a get command.
+// Options for a getCommand command.
 type options struct {
 	Global  bool
 	NoSave  bool
@@ -21,15 +21,15 @@ type options struct {
 	NoInit  bool
 }
 
-// NewCommand creates a new get command.
+// NewCommand creates a new getCommand command.
 func NewCommand(ctx context.CLIContext) *cobra.Command {
 	opts := &options{}
 	cmd := &cobra.Command{
-		Use:   "get [command name]",
+		Use:   "getCommand [command name]",
 		Short: "Install new commands",
-		Long:  fmt.Sprintf("Get (%s get) will install command to use with %s.", ctx.Config.CommandName, ctx.Config.CommandName),
+		Long:  fmt.Sprintf("Get (%s getCommand) will install command to use with %s.", ctx.Config.CommandName, ctx.Config.CommandName),
 		Run: func(_ *cobra.Command, args []string) {
-			get(ctx, opts, args)
+			getCommand(ctx, opts, args)
 		},
 	}
 
@@ -43,7 +43,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func get(ctx context.CLIContext, opts *options, args []string) {
+func getCommand(ctx context.CLIContext, opts *options, args []string) {
 	var getScope scope.Scope
 
 	if opts.Global {
