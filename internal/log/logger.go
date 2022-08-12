@@ -101,13 +101,13 @@ func (l *Logger) Spamf(format string, args ...interface{}) {
 // log prints message with specified level.
 func (l *Logger) log(level Level, v ...interface{}) {
 	if level <= l.level {
-		_, _ = l.printer.Println(message{Level: level, Text: fmt.Sprint(v...)})
+		_, _ = l.printer.Println(&message{Level: level, Text: fmt.Sprint(v...)})
 	}
 }
 
 // logf prints message with specified level.
 func (l *Logger) logf(level Level, format string, args ...interface{}) {
 	if level <= l.level {
-		_, _ = l.printer.Println(message{Level: level, Text: fmt.Sprintf(format, args...)})
+		_, _ = l.printer.Println(&message{Level: level, Text: fmt.Sprintf(format, args...)})
 	}
 }
