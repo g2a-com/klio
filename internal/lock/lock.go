@@ -1,6 +1,7 @@
 package lock
 
 import (
+	"fmt"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/nightlyone/lockfile"
 )
@@ -23,13 +24,23 @@ func New(lockPath string) (Lock, error) {
 }
 
 func (l *lock) Acquire() error {
-	lockOwner, _ := l.lockFile.GetOwner()
+	err := l.lockFile.TryLock()
+	if err != nil {
+		return err
+	}
+	lockOwner, err := l.lockFile.GetOwner()
+	if err != nil {
+		return err
+	}
 	log.Debugf("acquiring lock for process %d", lockOwner.Pid)
-	return l.lockFile.TryLock()
+	return nil
 }
 
 func (l *lock) Release() error {
-	lockOwner, _ := l.lockFile.GetOwner()
+	lockOwner, err := l.lockFile.GetOwner()
+	if err != nil {
+		return fmt.Errorf("failed releasing a lock: %v", err)
+	}
 	log.Debugf("releasing lock for process %d", lockOwner.Pid)
 	return l.lockFile.Unlock()
 }

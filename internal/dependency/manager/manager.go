@@ -103,7 +103,12 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	if err := installLock.Acquire(); err != nil {
 		return err
 	}
-	defer func() { _ = installLock.Release() }()
+	defer func() {
+		err = installLock.Release()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	// == Initialize registry ==
 	dep.SetDefaults(mgr.DefaultRegistry)

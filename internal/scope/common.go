@@ -15,13 +15,13 @@ type Scope interface {
 	GetInstalledDependencies() []dependency.Dependency
 }
 
-func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, installDir string) []dependency.Dependency {
+func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, installDir string) ([]dependency.Dependency, error) {
 	var installedDeps []dependency.Dependency
 
 	for _, dep := range toInstall {
 
 		if err := depsMgr.InstallDependency(&dep, installDir); err != nil {
-			log.Fatalf("Failed to install %s@%s: %s", dep.Name, dep.Version, err)
+			return nil, err
 		}
 
 		if dep.Alias == "" {
@@ -33,5 +33,5 @@ func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Depend
 		installedDeps = append(installedDeps, dep)
 	}
 
-	return installedDeps
+	return installedDeps, nil
 }
