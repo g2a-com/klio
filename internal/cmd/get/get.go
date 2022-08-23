@@ -25,7 +25,7 @@ type options struct {
 func NewCommand(ctx context.CLIContext) *cobra.Command {
 	opts := &options{}
 	cmd := &cobra.Command{
-		Use:   "getCommand [command name]",
+		Use:   "get [command name]",
 		Short: "Install new commands",
 		Long:  fmt.Sprintf("Get (%s getCommand) will install command to use with %s.", ctx.Config.CommandName, ctx.Config.CommandName),
 		Run: func(_ *cobra.Command, args []string) {

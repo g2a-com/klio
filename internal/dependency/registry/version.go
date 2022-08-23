@@ -22,7 +22,7 @@ func (ver Version) GreaterThan(ver2 Version) bool {
 
 func getExactMatch(version Version) (string, error) {
 	_, err := semver.NewVersion(string(version))
-	if err != nil {
+	if err != nil && version != "*" {
 		return "", err
 	}
 	return string(version), nil
