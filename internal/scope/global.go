@@ -56,7 +56,11 @@ func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) err
 
 	dep := listOfCommands
 
-	g.installedDeps = installDependencies(g.dependencyManager, dep, g.installDir)
+	installedDeps, err := installDependencies(g.dependencyManager, dep, g.installDir)
+	if err != nil {
+		return err
+	}
+	g.installedDeps = installedDeps
 
 	return nil
 }
