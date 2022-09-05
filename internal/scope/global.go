@@ -25,7 +25,11 @@ func NewGlobal(globalInstallDir string) *global {
 
 func (g *global) ValidatePaths() error {
 	if _, err := g.os.Stat(g.installDir); os.IsNotExist(err) {
-		return fmt.Errorf("global install dir does not exists")
+		// make sure install dir exists
+		err = g.os.MkdirAll(g.installDir, standardDirPermission)
+		if err != nil {
+			return fmt.Errorf("global dir initialization failed with error: %s", err.Error())
+		}
 	} else if err != nil {
 		return err
 	}

@@ -52,12 +52,15 @@ func (l *local) ValidatePaths() error {
 }
 
 func (l *local) Initialize(ctx *context.CLIContext) error {
+
+	// look for config file
+	configFile, configFileErr := l.os.Stat(l.projectConfigFile)
 	if !l.noInit {
 		// make sure install dir exists
 		_ = l.os.MkdirAll(l.installDir, standardDirPermission)
-
+		var err error
 		// make sure if config file exists
-		if configFile, err := l.os.Stat(l.projectConfigFile); os.IsNotExist(err) {
+		if os.IsNotExist(configFileErr) {
 			_, err = project.CreateDefaultProjectConfig(l.projectConfigFile)
 			if err != nil {
 				return err
@@ -65,6 +68,8 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 		} else if err == nil && configFile.IsDir() {
 			return fmt.Errorf("can't create config file; path collision with a directory %s", l.projectConfigFile)
 		}
+	} else if os.IsNotExist(configFileErr) {
+		return fmt.Errorf("%s not found; make sure it exists before running command with \"--no-init\"", ctx.Config.ProjectConfigFileName)
 	}
 
 	// initialize dependency manager
