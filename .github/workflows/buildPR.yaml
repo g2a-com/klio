@@ -1,6 +1,6 @@
 name: KLIO PR build
 
-on: [pull_request_target, pull_request]
+on: [pull_request_target]
 
 permissions:
   issues: write
@@ -44,7 +44,7 @@ jobs:
       - name: Build
         run: go build -v ./cmd/klio/...
 
-  test:
+  ftest:
     strategy:
       matrix:
         os:
@@ -61,7 +61,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.18
 
       - name: Test
         run: |
@@ -79,7 +79,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.18
 
       - name: Calculate coverage
         id: calc
@@ -93,23 +93,25 @@ jobs:
           echo "::set-output name=coverage::$coverage"
           echo ::set-output name=pr_number::"$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")"
 
-      - name: Create coverage comment for local pull request
-        if: ${{ github.repository_owner != 'g2a-com' && github.event_name == 'pull_request' }}
-        uses: peter-evans/create-or-update-comment@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ steps.calc.outputs.pr_number }}
-          body: |
-            **Coverage report**
-            ${{ steps.calc.outputs.coverage }}
-
-      - name: Create coverage comment for upstream pull request
-        if: ${{ github.repository_owner == 'g2a-com' && github.event_name == 'pull_request_target' }}
+      - name: Find Comment
+        if: ${{ github.repository_owner == 'g2a-com' }}
         continue-on-error: true
-        uses: peter-evans/create-or-update-comment@v1
+        uses: peter-evans/find-comment@v2
+        id: fc
         with:
           token: ${{ secrets.KLIO_PR_COMMENT_KEY }}
           issue-number: ${{ steps.calc.outputs.pr_number }}
+          body-includes: Coverage report
+
+      - name: Create or update comment
+        if: ${{ github.repository_owner == 'g2a-com' }}
+        continue-on-error: true
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          token: ${{ secrets.KLIO_PR_COMMENT_KEY }}
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ steps.calc.outputs.pr_number }}
           body: |
             **Coverage report**
             ${{ steps.calc.outputs.coverage }}
+            edit-mode: replace
