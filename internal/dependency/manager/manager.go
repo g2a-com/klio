@@ -169,12 +169,23 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	if err != nil {
 		return err
 	}
-	var newEntries []dependency.DependenciesIndexEntry
+	var newEntries, oldEntries []dependency.DependenciesIndexEntry
 	for _, entry := range mgr.dependencyIndexHandler.GetEntries() {
 		if entry.Alias != dep.Alias {
 			newEntries = append(newEntries, entry)
+		} else if entry.Checksum != checksum {
+			oldEntries = append(oldEntries, entry)
 		}
 	}
+
+	// == Remove directories with dependencies that won't be used anymore ==
+	for _, entry := range oldEntries {
+		absPath := filepath.Join(installDir, entry.Path)
+		if err := mgr.os.RemoveAll(absPath); err != nil {
+			return fmt.Errorf("unable to remove directory: %s due to %s", absPath, err)
+		}
+	}
+
 	dep.Version = registryEntry.Version
 
 	mgr.dependencyIndexHandler.SetEntries(
@@ -189,6 +200,62 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 			Path:     outputRelPath,
 		}),
 	)
+	if err := mgr.dependencyIndexHandler.SaveDependencyIndex(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemoveDependency removes a single dependency in the installDir directory.
+// Dependency metadata is provided in dep.
+func (mgr *Manager) RemoveDependency(dep *dependency.Dependency, installDir string) error {
+	// == Acquire lock for updating dependencies.json ==
+	// make sure main install dir exists (necessary for lockfile setup)
+	installLock, err := mgr.createLock(filepath.Join(installDir, indexLockFile))
+	if err != nil {
+		return err
+	}
+	if err := installLock.Acquire(); err != nil {
+		return err
+	}
+	defer func() { _ = installLock.Release() }()
+
+	// == Load dependencies.json ==
+	indexFilePath := filepath.Join(installDir, indexFileName)
+	err = mgr.dependencyIndexHandler.LoadDependencyIndex(indexFilePath)
+	if err != nil {
+		return err
+	}
+
+	// == Gather entires that should be removed ==
+	var entriesToRemove []dependency.DependenciesIndexEntry
+	for _, entry := range mgr.dependencyIndexHandler.GetEntries() {
+		if entry.Alias == dep.Alias {
+			entriesToRemove = append(entriesToRemove, entry)
+		}
+	}
+
+	// == Assume command was deleted manually and exit ==
+	if len(entriesToRemove) == 0 {
+		log.Debugf("skipping removal of %s as it does not exist", dep.Alias)
+		return nil
+	}
+
+	// == Remove command from filesystem if it exists ==
+	for _, entry := range entriesToRemove {
+		absPath := filepath.Join(installDir, entry.Path)
+		if err := mgr.os.RemoveAll(absPath); err != nil {
+			return fmt.Errorf("unable to delete directory: %s due to %s", absPath, err)
+		}
+	}
+
+	// == Update dependencies.json ==
+	mgr.dependencyIndexHandler.SetEntries(
+		removeFromDependencyIndexList(
+			entriesToRemove,
+			mgr.dependencyIndexHandler.GetEntries(),
+		))
 	if err := mgr.dependencyIndexHandler.SaveDependencyIndex(); err != nil {
 		return err
 	}
@@ -253,4 +320,19 @@ func downloadFile(artifactoryClient *http.Client, url string, file io.Writer) (c
 	}
 
 	return fmt.Sprintf("sha256-%x", hash.Sum(nil)), nil
+}
+
+func removeFromDependencyIndexList(entriesToRemove []dependency.DependenciesIndexEntry, entryList []dependency.DependenciesIndexEntry) []dependency.DependenciesIndexEntry {
+	newEntryList := make([]dependency.DependenciesIndexEntry, 0)
+	entryMap := make(map[string]struct{})
+	for _, entry := range entriesToRemove {
+		entryMap[entry.Alias] = struct{}{}
+	}
+
+	for _, entry := range entryList {
+		if _, found := entryMap[entry.Alias]; !found {
+			newEntryList = append(newEntryList, entry)
+		}
+	}
+	return newEntryList
 }

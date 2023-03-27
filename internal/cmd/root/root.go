@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	getCommand "github.com/g2a-com/klio/internal/cmd/get"
+	removeCommand "github.com/g2a-com/klio/internal/cmd/remove"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
@@ -46,6 +47,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 
 	// Register builtin commands
 	rootCommand.AddCommand(getCommand.NewCommand(ctx))
+	rootCommand.AddCommand(removeCommand.NewCommand(ctx))
 
 	// Register external commands
 	for _, dep := range commands {
