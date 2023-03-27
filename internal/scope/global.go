@@ -16,6 +16,7 @@ type global struct {
 	os                afero.Fs
 	dependencyManager *manager.Manager
 	installedDeps     []dependency.Dependency
+	removedDeps       []dependency.Dependency
 	installDir        string
 }
 
@@ -67,4 +68,21 @@ func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) err
 
 func (g *global) GetInstalledDependencies() []dependency.Dependency {
 	return g.installedDeps
+}
+
+func (g *global) RemoveDependencies(listOfCommands []dependency.Dependency) error {
+	if len(listOfCommands) != allowedNumberOfGlobalCommands {
+		return fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
+			len(listOfCommands), allowedNumberOfGlobalCommands)
+	}
+
+	dep := listOfCommands
+
+	g.removedDeps = removeDependencies(g.dependencyManager, dep, g.installDir)
+
+	return nil
+}
+
+func (g *global) GetRemovedDependencies() []dependency.Dependency {
+	return g.removedDeps
 }

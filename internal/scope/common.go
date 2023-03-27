@@ -13,6 +13,8 @@ type Scope interface {
 	GetImplicitDependencies() []dependency.Dependency
 	InstallDependencies([]dependency.Dependency) error
 	GetInstalledDependencies() []dependency.Dependency
+	RemoveDependencies([]dependency.Dependency) error
+	GetRemovedDependencies() []dependency.Dependency
 }
 
 func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, installDir string) ([]dependency.Dependency, error) {
@@ -34,4 +36,21 @@ func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Depend
 	}
 
 	return installedDeps, nil
+}
+
+func removeDependencies(depsMgr *manager.Manager, toRemove []dependency.Dependency, installDir string) []dependency.Dependency {
+	var removedDeps []dependency.Dependency
+
+	for _, dep := range toRemove {
+
+		if err := depsMgr.RemoveDependency(&dep, installDir); err != nil {
+			log.Fatalf("Failed to remove %s: %s", dep.Alias, err)
+		}
+
+		log.Infof("Removed %s", dep.Alias)
+
+		removedDeps = append(removedDeps, dep)
+	}
+
+	return removedDeps
 }

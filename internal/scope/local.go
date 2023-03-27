@@ -21,6 +21,7 @@ type local struct {
 	projectConfig     *project.Config
 	dependencyManager *manager.Manager
 	installedDeps     []dependency.Dependency
+	removedDeps       []dependency.Dependency
 	os                afero.Fs
 	projectConfigFile string
 	installDir        string
@@ -129,4 +130,18 @@ func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) erro
 
 func (l *local) GetInstalledDependencies() []dependency.Dependency {
 	return l.installedDeps
+}
+
+func (l *local) RemoveDependencies(listOfCommands []dependency.Dependency) error {
+	if len(listOfCommands) == 0 {
+		return fmt.Errorf("no dependencies provided for the project")
+	}
+
+	l.removedDeps = removeDependencies(l.dependencyManager, listOfCommands, l.installDir)
+
+	return nil
+}
+
+func (l *local) GetRemovedDependencies() []dependency.Dependency {
+	return l.removedDeps
 }
