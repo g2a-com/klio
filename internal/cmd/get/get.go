@@ -2,6 +2,7 @@ package get
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/g2a-com/klio/internal/context"
@@ -43,6 +44,17 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func validateName(name string) (bool, string) {
+	const regexpString = `^[a-z0-9_-]+$`
+
+	matched, err := regexp.MatchString(regexpString, name)
+	if err != nil {
+		log.Fatalf("matching string '%s', using regexp '%s' failed with error: %s", name, regexpString, err)
+	}
+
+	return matched, regexpString
+}
+
 func getCommand(ctx context.CLIContext, opts *options, args []string) {
 	var getScope scope.Scope
 
@@ -59,6 +71,18 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 	err = getScope.Initialize(&ctx)
 	if err != nil {
 		log.Fatalf("scope initialization failed: %s", err)
+	}
+
+	nameValidationResult, regexpString := validateName(args[0])
+	if !nameValidationResult {
+		log.Fatalf("command name '%s' not matching '%s' regular expression", args[0], regexpString)
+	}
+
+	if len(opts.As) > 0 {
+		nameValidationResult, regexpString = validateName(opts.As)
+		if !nameValidationResult {
+			log.Fatalf("command alias '%s' not matching '%s' regular expression", opts.As, regexpString)
+		}
 	}
 
 	var dependencies []dependency.Dependency
