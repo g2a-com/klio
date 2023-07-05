@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Masterminds/semver/v3"
 	"regexp"
+	"net/url"
 	"strings"
 
 	"github.com/g2a-com/klio/internal/context"
@@ -90,6 +91,10 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 
 	if _, err := semver.StrictNewVersion(opts.Version); err != nil {
 		log.Fatalf("'%s' does not meet the criteria for semantic versioning: %s", opts.Version, err)
+	}
+
+	if _, err := url.ParseRequestURI(opts.From); err != nil {
+		log.Fatalf("'%s' is not a valid URL: %s", opts.From, err)
 	}
 
 	var dependencies []dependency.Dependency
