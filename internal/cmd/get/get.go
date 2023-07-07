@@ -73,13 +73,15 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 		log.Fatalf("scope initialization failed: %s", err)
 	}
 
-	nameValidationResult, regexpString := validateName(args[0])
-	if !nameValidationResult {
-		log.Fatalf("command name '%s' not matching '%s' regular expression", args[0], regexpString)
+	if len(args) > 0 {
+		nameValidationResult, regexpString := validateName(args[0])
+		if !nameValidationResult {
+			log.Fatalf("command name '%s' not matching '%s' regular expression", args[0], regexpString)
+		}
 	}
 
 	if len(opts.As) > 0 {
-		nameValidationResult, regexpString = validateName(opts.As)
+		nameValidationResult, regexpString := validateName(opts.As)
 		if !nameValidationResult {
 			log.Fatalf("command alias '%s' not matching '%s' regular expression", opts.As, regexpString)
 		}
