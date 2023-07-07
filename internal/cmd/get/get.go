@@ -2,6 +2,7 @@ package get
 
 import (
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	"regexp"
 	"strings"
 
@@ -85,6 +86,10 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 		if !nameValidationResult {
 			log.Fatalf("command alias '%s' not matching '%s' regular expression", opts.As, regexpString)
 		}
+	}
+
+	if _, err := semver.StrictNewVersion(opts.Version); err != nil {
+		log.Fatalf("'%s' does not meet the criteria for semantic versioning: %s", opts.Version, err)
 	}
 
 	var dependencies []dependency.Dependency
