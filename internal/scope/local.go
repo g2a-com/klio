@@ -59,14 +59,13 @@ func (l *local) Initialize(ctx *context.CLIContext) error {
 	if !l.noInit {
 		// make sure install dir exists
 		_ = l.os.MkdirAll(l.installDir, standardDirPermission)
-		var err error
 		// make sure if config file exists
 		if os.IsNotExist(configFileErr) {
-			_, err = project.CreateDefaultProjectConfig(l.projectConfigFile)
+			_, err := project.CreateDefaultProjectConfig(l.projectConfigFile)
 			if err != nil {
 				return err
 			}
-		} else if err == nil && configFile.IsDir() {
+		} else if configFileErr == nil && configFile.IsDir() {
 			return fmt.Errorf("can't create config file; path collision with a directory %s", l.projectConfigFile)
 		}
 	} else if os.IsNotExist(configFileErr) {
