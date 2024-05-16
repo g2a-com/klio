@@ -2,3 +2,4 @@ dist
 .idea
 /coverage.out
 /klio
+.klio

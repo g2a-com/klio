@@ -62,8 +62,8 @@ linters:
   enable:
     # unused
     - ineffassign
-    - deadcode
-    - structcheck
+    # - deadcode 
+    # - structcheck
     #complexity
     - nestif
     - gocyclo
