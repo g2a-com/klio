@@ -8,6 +8,7 @@ import (
 	removeCommand "github.com/g2a-com/klio/internal/cmd/remove"
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency/manager"
+	"github.com/g2a-com/klio/internal/env"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/spf13/cobra"
 )
@@ -35,11 +36,10 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	log.SetLevel(*logLevel)
 	log.IncreaseLevel(*verbosity)
 
-	envLogLevel, ok := os.LookupEnv("KLIO_LOG_LEVEL")
-	if ok {
-		log.SetLevel(envLogLevel)
+	if _, ok := os.LookupEnv(env.KLIO_LOG_LEVEL); ok {
+		log.SetLevelFromEnv()
 	} else {
-		_ = os.Setenv("KLIO_LOG_LEVEL", log.GetLevel())
+		_ = os.Setenv(env.KLIO_LOG_LEVEL, log.GetLevel())
 	}
 
 	// Discover commands
