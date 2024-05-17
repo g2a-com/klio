@@ -22,6 +22,11 @@ func NewLogger(output io.Writer) *Logger {
 	}
 }
 
+// SetOutput allows for setting output to which logger writes messages
+func (l *Logger) SetOutput(o io.Writer) {
+	l.output = o
+}
+
 // Fatal `os.Exit(1)` exit no matter the level of the logger.
 // If the logger's level is fatal, error, warn, info, verbose debug or spam
 // then it will print the log message too.
@@ -96,6 +101,16 @@ func (l *Logger) Spam(v ...interface{}) {
 // Spamf will print when logger's Level is spam.
 func (l *Logger) Spamf(format string, args ...interface{}) {
 	l.logf(SpamLevel, format, args...)
+}
+
+// Println prints a log message without levels and colors.
+func (l *Logger) Println(v ...interface{}) {
+	l.log(DisableLevel, v...)
+}
+
+// Printf formats according to the specified format without levels and colors.
+func (l *Logger) Printf(format string, args ...interface{}) {
+	l.logf(DisableLevel, format, args...)
 }
 
 // log prints message with specified level.

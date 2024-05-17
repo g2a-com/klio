@@ -1,7 +1,10 @@
 package log
 
 import (
+	"io"
 	"os"
+
+	"github.com/g2a-com/klio/internal/env"
 )
 
 // Following functions are based on golog default logging methods:
@@ -11,6 +14,11 @@ var (
 	DefaultLogger = NewLogger(os.Stdout)
 	ErrorLogger   = NewLogger(os.Stderr)
 )
+
+// SetOutput allows for setting output to which logger writes messages
+func SetOutput(o io.Writer) {
+	DefaultLogger.SetOutput(o)
+}
 
 // SetLevel sets minimum level for logs, logs with level above specified value will not be printed.
 func SetLevel(levelName string) {
@@ -24,14 +32,29 @@ func SetLevel(levelName string) {
 	}
 }
 
+// SetLevelFromEnv sets minimum level for logs based on environment variables
+func SetLevelFromEnv() {
+	SetLevel(os.Getenv(env.KLIO_LOG_LEVEL))
+}
+
 // GetDefaultLevel returns default logging level name.
 func GetDefaultLevel() string {
 	return levels[DefaultLevel].Name
 }
 
+// GetDefaultErrorLevel returns default error logging level name.
+func GetDefaultErrorLevel() string {
+	return levels[DefaultErrorLevel].Name
+}
+
 // GetLevel returns current logging level name.
 func GetLevel() string {
 	return levels[DefaultLogger.level].Name
+}
+
+// GetSupportedLevels returns supported logging levels.
+func GetSupportedLevels() []string {
+	return LevelNames
 }
 
 // IncreaseLevel changes current level by specified number.
@@ -47,6 +70,16 @@ func IncreaseLevel(levels int) {
 	} else {
 		ErrorLogger.level = ErrorLogger.level + Level(levels)
 	}
+}
+
+// Println prints a log message without levels and colors.
+func Println(v ...interface{}) {
+	DefaultLogger.Println(v...)
+}
+
+// Printf prints a log message without levels and colors.
+func Printf(format string, args ...interface{}) {
+	DefaultLogger.Printf(format, args...)
 }
 
 // Fatal `os.Exit(1)` exit no matter the level of the logger.
@@ -123,4 +156,14 @@ func Spam(v ...interface{}) {
 // Spamf will print when logger's Level is spam.
 func Spamf(format string, args ...interface{}) {
 	DefaultLogger.Spamf(format, args...)
+}
+
+// Log prints message with specified level.
+func Log(level Level, v ...interface{}) {
+	DefaultLogger.log(level, v...)
+}
+
+// Logf prints message with specified level.
+func Logf(level Level, format string, args ...interface{}) {
+	DefaultLogger.logf(level, format, args...)
 }
