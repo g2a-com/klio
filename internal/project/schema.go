@@ -24,7 +24,7 @@ func NewDefaultConfig() *Config {
 	return &projectConfig
 }
 
-func (p Config) MarshalYAML() (interface{}, error) {
+func (p *Config) MarshalYAML() (interface{}, error) {
 	var defaultRegistryValueNode *yaml.Node
 	var dependenciesValueNode *yaml.Node
 
@@ -62,8 +62,8 @@ func (p Config) MarshalYAML() (interface{}, error) {
 	}
 
 	// Encode defaultRegistry
-	_ = defaultRegistryValueNode.Encode(p.DefaultRegistry)
 
+	_ = defaultRegistryValueNode.Encode(&p.DefaultRegistry)
 	// Encode dependencies
 	dependencies := map[string]dependency.Dependency{}
 	for _, d := range p.Dependencies {

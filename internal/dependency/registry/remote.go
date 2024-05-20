@@ -42,7 +42,7 @@ func (reg *remote) Update() error {
 	}(res.Body)
 
 	if res.StatusCode >= http.StatusMultipleChoices { // 300
-		return fmt.Errorf("artifactory returned response: %s", res.Status)
+		return fmt.Errorf("registry returned response: %s", res.Status)
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
