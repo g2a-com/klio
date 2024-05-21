@@ -57,7 +57,11 @@ func NewManager() *Manager {
 func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 	// Initialize depRegistry
 	if _, ok := mgr.registries[dep.Registry]; !ok {
-		mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
+		if strings.HasPrefix(dep.Registry, "file://") {
+			mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
+		} else {
+			mgr.registries[dep.Registry] = registry.NewRemote(dep.Registry)
+		}
 		if err := mgr.registries[dep.Registry].Update(); err != nil {
 			return Updates{}, err
 		}
@@ -113,7 +117,7 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	// == Initialize registry ==
 	dep.SetDefaults(mgr.DefaultRegistry)
 	if _, ok := mgr.registries[dep.Registry]; !ok {
-		if strings.HasPrefix(dep.Registry, "file:///") {
+		if strings.HasPrefix(dep.Registry, "file://") {
 			mgr.registries[dep.Registry] = registry.NewLocal(dep.Registry)
 		} else {
 			mgr.registries[dep.Registry] = registry.NewRemote(dep.Registry)
@@ -243,10 +247,20 @@ func (mgr *Manager) RemoveDependency(dep *dependency.Dependency, installDir stri
 	}
 
 	// == Remove command from filesystem if it exists ==
-	for _, entry := range entriesToRemove {
-		absPath := filepath.Join(installDir, entry.Path)
-		if err := mgr.os.RemoveAll(absPath); err != nil {
-			return fmt.Errorf("unable to delete directory: %s due to %s", absPath, err)
+	for _, entryToRemove := range entriesToRemove {
+		shouldRemove := true
+		for _, entry := range mgr.dependencyIndexHandler.GetEntries() {
+			if entryToRemove.Alias != entry.Alias &&
+				entryToRemove.Name == entry.Name &&
+				entryToRemove.Path == entry.Path {
+				shouldRemove = false // do not remove binary if another command also references it
+			}
+			if shouldRemove {
+				absPath := filepath.Join(installDir, entryToRemove.Path)
+				if err := mgr.os.RemoveAll(absPath); err != nil {
+					return fmt.Errorf("unable to delete directory: %s due to %s", absPath, err)
+				}
+			}
 		}
 	}
 

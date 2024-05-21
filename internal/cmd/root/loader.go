@@ -1,11 +1,13 @@
 package root
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/manager"
+	"github.com/g2a-com/klio/internal/env"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/spf13/cobra"
 )
@@ -69,12 +72,24 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			}
 
 			updateMsgChannel := make(chan string, 1)
-			go getUpdateMessage(ctx, dep, updateMsgChannel)
 			timeoutChannel := make(chan bool, 1)
-			go func() {
-				time.Sleep(updateTimeout)
-				timeoutChannel <- true
-			}()
+			skipUpdates := false
+
+			if skipUpdatesStr, exists := os.LookupEnv(env.KLIO_SKIP_UPDATE_CHECK); exists {
+				if v, err := strconv.ParseBool(skipUpdatesStr); err != nil {
+					log.Warnf("Could not parse boolean value of %s, err: %s", env.KLIO_SKIP_UPDATE_CHECK, err.Error())
+				} else {
+					skipUpdates = v
+				}
+			}
+
+			if !skipUpdates {
+				go getUpdateMessage(ctx, dep, updateMsgChannel)
+				go func() {
+					time.Sleep(updateTimeout)
+					timeoutChannel <- true
+				}()
+			}
 
 			log.Debugf(`Running %s "%s"`, externalCmdPath, strings.Join(args, `" "`))
 
@@ -85,15 +100,17 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			wg.Wait()
 			err = externalCmd.Wait()
 
-			select {
-			case msg := <-updateMsgChannel:
-				if msg != "" {
-					for _, line := range strings.Split(msg, "\n") {
-						log.ErrorLogger.Warn(line)
+			if !skipUpdates {
+				select {
+				case msg := <-updateMsgChannel:
+					if msg != "" {
+						for _, line := range strings.Split(msg, "\n") {
+							log.ErrorLogger.Warn(line)
+						}
 					}
+				case <-timeoutChannel:
+					break
 				}
-			case <-timeoutChannel:
-				break
 			}
 
 			if err != nil {
@@ -106,6 +123,60 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			}
 		},
 		Version: fmt.Sprintf("%s (registry: %s, arch: %s, os: %s, checksum: %s)", dep.Version, dep.Registry, dep.Arch, dep.OS, dep.Checksum),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// Parses the completion info provided by cobra.Command. This should be formatted similar to:
+			//   help	Help about any command
+			//   :4
+			//   Completion ended with directive: ShellCompDirectiveNoFileComp
+			var buffer bytes.Buffer
+			var externalCmd *exec.Cmd
+			externalCmdPath := filepath.Join(dep.Path, cmdConfig.BinPath)
+			completionArgs := []string{"__complete"}
+			if runtime.GOOS == "windows" {
+				args = append([]string{"/c", externalCmdPath}, args...)
+				externalCmdPath = "cmd"
+			}
+			completionArgs = append(completionArgs, args...)
+			completionArgs = append(completionArgs, toComplete)
+			externalCmd = exec.Command(externalCmdPath, completionArgs...)
+			externalCmd.Stdin = os.Stdin
+			externalCmd.Stdout = &buffer
+			externalCmd.Env = os.Environ()
+			externalCmd.Env = append(externalCmd.Env, fmt.Sprintf("%s=%t", env.KLIO_SKIP_UPDATE_CHECK, true))
+
+			if err := externalCmd.Start(); err != nil {
+				log.Fatal(err)
+			}
+
+			if err = externalCmd.Wait(); err != nil {
+				switch e := err.(type) {
+				case *exec.ExitError:
+					os.Exit(e.ExitCode())
+				default:
+					log.Fatal(err)
+				}
+			}
+
+			output := buffer.String()
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
+			}
+
+			lines := strings.Split(strings.Trim(output, "\n"), "\n")
+			var results []string
+			for _, line := range lines {
+				if strings.HasPrefix(line, ":") {
+					// Special marker in output to indicate the end
+					directive, err := strconv.Atoi(line[1:])
+					if err != nil {
+						return results, cobra.ShellCompDirectiveError
+					}
+					return results, cobra.ShellCompDirective(directive)
+				}
+				results = append(results, line)
+			}
+			return []string{}, cobra.ShellCompDirectiveError
+		},
 	}
 	rootCmd.AddCommand(newCmd)
 }

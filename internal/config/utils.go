@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -37,7 +36,7 @@ func LoadConfigFile(dataStruct interface{}, meta *Metadata, configFilePath strin
 		return err
 	}
 
-	buf, err := ioutil.ReadFile(absPath)
+	buf, err := os.ReadFile(absPath)
 	if err == nil {
 		switch ext := path.Ext(absPath); ext {
 		case ".yaml", ".yml":

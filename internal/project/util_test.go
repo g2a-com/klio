@@ -1,7 +1,6 @@
 package project
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -9,7 +8,7 @@ import (
 
 func TestCreateDefaultProjectConfig(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "prefix")
+	dir, err := os.MkdirTemp("", "prefix")
 	if err != nil {
 		t.Fatalf("can't create temporary directory: %s", err)
 	}
