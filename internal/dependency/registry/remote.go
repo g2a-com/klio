@@ -33,6 +33,10 @@ func (reg *remote) Update() error {
 
 	var buffer []byte
 
+	if reg.url == "" {
+		return fmt.Errorf("registry url not set")
+	}
+
 	res, err := reg.client.Get(reg.url)
 	if err != nil {
 		return err

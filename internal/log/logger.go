@@ -22,9 +22,16 @@ func NewLogger(output io.Writer) *Logger {
 	}
 }
 
-// SetOutput allows for setting output to which logger writes messages
-func (l *Logger) SetOutput(o io.Writer) {
-	l.output = o
+// WithDefaultLevel allows to set default level for logger
+func (l *Logger) WithDefaultLevel(level Level) *Logger {
+	l.level = level
+	return l
+}
+
+// WithOutput allows to set custom output for logger
+func (l *Logger) WithOutput(output io.Writer) *Logger {
+	l.output = output
+	return l
 }
 
 // Fatal `os.Exit(1)` exit no matter the level of the logger.

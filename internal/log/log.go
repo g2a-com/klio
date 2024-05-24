@@ -1,7 +1,6 @@
 package log
 
 import (
-	"io"
 	"os"
 
 	"github.com/g2a-com/klio/internal/env"
@@ -14,11 +13,6 @@ var (
 	DefaultLogger = NewLogger(os.Stdout)
 	ErrorLogger   = NewLogger(os.Stderr)
 )
-
-// SetOutput allows for setting output to which logger writes messages
-func SetOutput(o io.Writer) {
-	DefaultLogger.SetOutput(o)
-}
 
 // SetLevel sets minimum level for logs, logs with level above specified value will not be printed.
 func SetLevel(levelName string) {
