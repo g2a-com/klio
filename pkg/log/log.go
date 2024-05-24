@@ -40,9 +40,9 @@ const (
 	MaxLevel = log.MaxLevel
 )
 
-// SetOutput allows for setting output to which logger writes messages
-func SetOutput(o io.Writer) {
-	log.SetOutput(o)
+// NewLogger returns a new logger instance with defined output and default level
+func NewLogger(out io.Writer, defaultLevel Level) *log.Logger {
+	return log.NewLogger(out).WithDefaultLevel(defaultLevel)
 }
 
 // SetLevel sets minimum level for logs, logs with level above specified value will not be printed.
