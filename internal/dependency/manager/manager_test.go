@@ -1,8 +1,8 @@
 package manager
 
 import (
+	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -383,10 +383,8 @@ func TestInstallMajorUpdateWithoutDefaultRegistryFallback(t *testing.T) {
 			Version:  "2.12.1",
 			Alias:    dependencyName,
 		},
-		CheckForUpdatesShouldFailWith: &fs.PathError{
-			Op: "open", Err: fmt.Errorf(""),
-		},
-		CommandInstallShouldFailWith: &CantFindExactVersionMatchError{dependencyName, "2.12.1", ""},
+		CheckForUpdatesShouldFailWith: errors.New("registry url not set"),
+		CommandInstallShouldFailWith:  &CantFindExactVersionMatchError{dependencyName, "2.12.1", ""},
 	}
 
 	suite.Run(t, &mts)
@@ -440,7 +438,7 @@ func TestInstallMajorUpdateWithNonExistentHttpRegistry(t *testing.T) {
 			Version:  "2.12.1",
 			Alias:    dependencyName,
 		},
-		CheckForUpdatesShouldFailWith: &fs.PathError{Op: "open", Path: "http://fake.registry.io", Err: fmt.Errorf("")},
+		CheckForUpdatesShouldFailWith: errors.New("no such host"),
 		CommandInstallShouldFailWith:  &CantFindExactVersionMatchError{dependencyName, "2.12.1", "http://fake.registry.io"},
 	}
 
