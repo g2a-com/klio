@@ -1,5 +1,12 @@
 # Changelog
 
+### [1.1.1](https://www.github.com/g2a-com/klio/compare/v1.1.0...v1.1.1) (2024-05-24)
+
+
+### Bug Fixes
+
+* remove bugged SetOuput and allow to create new logger instance ([#71](https://www.github.com/g2a-com/klio/issues/71)) ([f8ec6fb](https://www.github.com/g2a-com/klio/commit/f8ec6fbc62d432cb38966295c9605cbdb426c0d8))
+
 ## [1.1.0](https://www.github.com/g2a-com/klio/compare/v1.0.1...v1.1.0) (2024-05-21)
 
 
