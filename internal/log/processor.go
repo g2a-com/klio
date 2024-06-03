@@ -49,11 +49,13 @@ func (lp *Processor) Process() {
 
 	flush := func() {
 		if line != "" {
-			_, _ = lp.logger.printer.Print(&message{
-				Level: level,
-				Tags:  tags,
-				Text:  line,
-			})
+			if level <= lp.logger.level {
+				lp.logger.printer.Println(&message{
+					Level: level,
+					Tags:  tags,
+					Text:  line,
+				})
+			}
 			line = ""
 		}
 	}
