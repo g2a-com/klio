@@ -1,5 +1,12 @@
 # Changelog
 
+### [1.1.2](https://www.github.com/g2a-com/klio/compare/v1.1.1...v1.1.2) (2024-06-03)
+
+
+### Bug Fixes
+
+* update flush func to respect log level and add new line ([#73](https://www.github.com/g2a-com/klio/issues/73)) ([e503488](https://www.github.com/g2a-com/klio/commit/e5034886ec5411ebe2d3a59a61d87bccb465495c))
+
 ### [1.1.1](https://www.github.com/g2a-com/klio/compare/v1.1.0...v1.1.1) (2024-05-24)
 
 
