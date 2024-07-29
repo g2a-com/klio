@@ -56,11 +56,9 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 			var wg sync.WaitGroup
 
 			switch cmdConfig.APIVersion {
-			case "g2a-cli/v1beta1", "g2a-cli/v1beta2", "g2a-cli/v1beta3", "g2a-cli/v1beta4":
+			case "g2a-cli/v1beta1", "g2a-cli/v1beta2", "g2a-cli/v1beta3", "g2a-cli/v1beta4", "klio/v1":
 				externalCmd.Stdout = os.Stdout
 				externalCmd.Stderr = os.Stderr
-			case "klio/v1":
-				setupLogProcessor(externalCmd, &wg)
 			default:
 				log.Warnf(
 					"Cannot load command %s since it requires an unsupported API Version to run (%s). Try to update the %s and try again.",
@@ -212,29 +210,4 @@ func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEn
 	} else {
 		msg <- fmt.Sprintf("New version of this command is available, but it may introduce some BREAKING CHANGES. Please consider updating it using:\n    %s", getInstallCmd(update.Breaking))
 	}
-}
-
-func setupLogProcessor(cmd *exec.Cmd, wg *sync.WaitGroup) {
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	wg.Add(1)
-	stdoutLogProcessor := log.NewProcessor(log.InfoLevel, log.DefaultLogger, stdoutPipe)
-	go func() {
-		stdoutLogProcessor.Process()
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	stderrLogProcessor := log.NewProcessor(log.ErrorLevel, log.ErrorLogger, stderrPipe)
-	go func() {
-		stderrLogProcessor.Process()
-		wg.Done()
-	}()
 }
