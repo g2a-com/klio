@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/g2a-com/klio/compare/v1.1.2...v1.1.3) (2024-07-30)
+
+
+### Bug Fixes
+
+* remove unused release-please param ([#78](https://github.com/g2a-com/klio/issues/78)) ([383091d](https://github.com/g2a-com/klio/commit/383091dfcca16801e4ed421d0cb640c527fb0566))
+
 ### [1.1.2](https://www.github.com/g2a-com/klio/compare/v1.1.1...v1.1.2) (2024-06-03)
 
 
