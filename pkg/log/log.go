@@ -121,7 +121,7 @@ func Warn(v ...interface{}) {
 
 // Warnf will print only when logger's Level is warn, info, verbose, debug or spam.
 func Warnf(format string, v ...interface{}) {
-	log.Warn(format, v)
+	log.Warnf(format, v...)
 }
 
 // Info will print only when logger's Level is info, verbose, debug or spam.
