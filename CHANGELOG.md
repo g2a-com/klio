@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/g2a-com/klio/compare/v1.1.3...v1.1.4) (2024-10-10)
+
+
+### Bug Fixes
+
+* properly format warn log ([#80](https://github.com/g2a-com/klio/issues/80)) ([db1e9de](https://github.com/g2a-com/klio/commit/db1e9de67ae92d35fb80250c46040a4a7a916fc3))
+
 ## [1.1.3](https://github.com/g2a-com/klio/compare/v1.1.2...v1.1.3) (2024-07-30)
 
 
