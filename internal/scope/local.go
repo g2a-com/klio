@@ -29,11 +29,24 @@ type local struct {
 	noSave            bool
 }
 
-func NewLocal(projectConfigFile string, projectInstallDir string, noInit bool, noSave bool) *local {
-	return &local{projectConfigFile: projectConfigFile, installDir: projectInstallDir, noInit: noInit, noSave: noSave, os: afero.NewOsFs()}
+func NewLocal(ctx *context.CLIContext, noInit bool, noSave bool) (*local, error) {
+	l := &local{
+		projectConfigFile: ctx.Paths.ProjectConfigFile,
+		installDir:        ctx.Paths.ProjectInstallDir,
+		noInit:            noInit,
+		noSave:            noSave,
+		os:                afero.NewOsFs(),
+	}
+	if err := l.validatePaths(); err != nil {
+		return nil, err
+	}
+	if err := l.initialize(ctx); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
-func (l *local) ValidatePaths() error {
+func (l *local) validatePaths() error {
 	currentUser, err := user.Current()
 	if err != nil {
 		return fmt.Errorf("can't determine current user")
@@ -52,8 +65,7 @@ func (l *local) ValidatePaths() error {
 	return nil
 }
 
-func (l *local) Initialize(ctx *context.CLIContext) error {
-
+func (l *local) initialize(ctx *context.CLIContext) error {
 	// look for config file
 	configFile, configFileErr := l.os.Stat(l.projectConfigFile)
 	if !l.noInit {
@@ -90,14 +102,14 @@ func (l *local) GetImplicitDependencies() []dependency.Dependency {
 	return l.projectConfig.Dependencies
 }
 
-func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) error {
+func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) ([]dependency.Dependency, []dependency.DependenciesIndexEntry, error) {
 	if len(listOfCommands) == 0 {
-		return fmt.Errorf("no dependencies provided for the project")
+		return nil, nil, fmt.Errorf("no dependencies provided for the project")
 	}
 
-	installedDeps, err := installDependencies(l.dependencyManager, listOfCommands, l.installDir)
+	installedDeps, installedDepsEntries, err := installDependencies(l.dependencyManager, listOfCommands, l.installDir)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	l.installedDeps = installedDeps
 
@@ -120,11 +132,11 @@ func (l *local) InstallDependencies(listOfCommands []dependency.Dependency) erro
 		l.projectConfig.DefaultRegistry = l.dependencyManager.DefaultRegistry
 
 		if err := project.SaveProjectConfig(l.projectConfig); err != nil {
-			return fmt.Errorf("unable to update dependencies in the %s file: %s", l.projectConfigFile, err)
+			return nil, nil, fmt.Errorf("unable to update dependencies in the %s file: %s", l.projectConfigFile, err)
 		}
 	}
 
-	return nil
+	return installedDeps, installedDepsEntries, nil
 }
 
 func (l *local) GetInstalledDependencies() []dependency.Dependency {

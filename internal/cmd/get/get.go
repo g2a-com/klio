@@ -45,18 +45,13 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 
 func getCommand(ctx context.CLIContext, opts *options, args []string) {
 	var getScope scope.Scope
+	var err error
 
 	if opts.Global {
-		getScope = scope.NewGlobal(ctx.Paths.GlobalInstallDir)
+		getScope, err = scope.NewGlobal(&ctx)
 	} else {
-		getScope = scope.NewLocal(ctx.Paths.ProjectConfigFile, ctx.Paths.ProjectInstallDir, opts.NoInit, opts.NoSave)
+		getScope, err = scope.NewLocal(&ctx, opts.NoInit, opts.NoSave)
 	}
-
-	err := getScope.ValidatePaths()
-	if err != nil {
-		log.Fatalf("validation of paths failed: %s", err)
-	}
-	err = getScope.Initialize(&ctx)
 	if err != nil {
 		log.Fatalf("scope initialization failed: %s", err)
 	}
@@ -78,12 +73,11 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 		log.Fatalf("max one command can be provided for install; provided %d", len(args))
 	}
 
-	err = getScope.InstallDependencies(dependencies)
+	installedDeps, _, err := getScope.InstallDependencies(dependencies)
 	if err != nil {
 		log.Fatalf("installing dependencies failed: %s", err)
 	}
 
-	installedDeps := getScope.GetInstalledDependencies()
 	var formattingArray []string
 	for _, d := range installedDeps {
 		formattingArray = append(formattingArray, fmt.Sprintf("%s:%s", d.Alias, d.Version))

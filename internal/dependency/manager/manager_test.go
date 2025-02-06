@@ -113,7 +113,7 @@ func (s *managerTestingSuite) TestGetUpdateFor() {
 
 func (s *managerTestingSuite) TestManagerInstallDependency() {
 	depToInstall := s.DepToInstall
-	err := s.mgr.InstallDependency(&depToInstall, s.InstallDir)
+	_, err := s.mgr.InstallDependency(&depToInstall, s.InstallDir)
 	if s.CommandInstallShouldFailWith != nil {
 		assert.ErrorContains(s.T(), err, s.CommandInstallShouldFailWith.Error())
 	} else {
