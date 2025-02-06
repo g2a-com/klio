@@ -247,12 +247,13 @@ func autoDownloadCommand(ctx *context.CLIContext, dep dependency.DependenciesInd
 
 			log.Infof(`Installed %[1]s@%[2]s but project config defines %[1]s@%[3]s, downloading %[1]s@%[3]s now...`, dep.Alias, dep.Version, projectDependency.Version)
 
-			_, installedDep, err := localScope.InstallDependencies([]dependency.Dependency{{
-				Name:     dep.Name,
-				Registry: dep.Registry,
-				Version:  projectDependency.Version,
-				Alias:    dep.Alias,
-			},
+			_, installedDep, err := localScope.InstallDependencies([]dependency.Dependency{
+				{
+					Name:     dep.Name,
+					Registry: dep.Registry,
+					Version:  projectDependency.Version,
+					Alias:    dep.Alias,
+				},
 			})
 			if err != nil {
 				return nil, fmt.Errorf("cannot install dependency: %s", err)

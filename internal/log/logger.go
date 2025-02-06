@@ -22,13 +22,13 @@ func NewLogger(output io.Writer) *Logger {
 	}
 }
 
-// WithDefaultLevel allows to set default level for logger
+// WithDefaultLevel allows to set default level for logger.
 func (l *Logger) WithDefaultLevel(level Level) *Logger {
 	l.level = level
 	return l
 }
 
-// WithOutput allows to set custom output for logger
+// WithOutput allows to set custom output for logger.
 func (l *Logger) WithOutput(output io.Writer) *Logger {
 	l.output = output
 	return l

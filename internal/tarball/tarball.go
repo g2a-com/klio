@@ -11,9 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/spf13/afero"
-
 	"github.com/g2a-com/klio/internal/log"
+	"github.com/spf13/afero"
 )
 
 // Extract extracts tar.gz archive into specified directory.

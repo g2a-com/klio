@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	"github.com/g2a-com/klio/internal/context"
-	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/stretchr/testify/suite"
 )
 
