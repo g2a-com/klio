@@ -222,6 +222,17 @@ func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEn
 }
 
 func autoDownloadCommand(ctx *context.CLIContext, dep dependency.DependenciesIndexEntry) (*dependency.DependenciesIndexEntry, error) {
+
+	args := os.Args[1:]
+	if len(args) == 0 {
+		return &dep, nil
+	} else {
+		command := args[0]
+		if command != dep.Alias {
+			return &dep, nil
+		}
+	}
+
 	skipAutoDownload := false
 	if skipAutoDownloadStr, exists := os.LookupEnv(env.KLIO_SKIP_PROJECT_COMMAND_AUTO_DOWNLOAD); exists {
 		if v, err := strconv.ParseBool(skipAutoDownloadStr); err != nil {
@@ -259,6 +270,7 @@ func autoDownloadCommand(ctx *context.CLIContext, dep dependency.DependenciesInd
 				return nil, fmt.Errorf("cannot install dependency: %s", err)
 			} else {
 				updatedDep = installedDep[0]
+				updatedDep.Path = filepath.Join(ctx.Paths.ProjectInstallDir, updatedDep.Path)
 			}
 		}
 	}
