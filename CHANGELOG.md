@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/g2a-com/klio/compare/v1.1.4...v1.2.0) (2025-02-10)
+
+
+### Features
+
+* auto download divergent project commands ([#86](https://github.com/g2a-com/klio/issues/86)) ([bf2893a](https://github.com/g2a-com/klio/commit/bf2893adb1b03eeb8b3efba192cc2fdbb477a78f))
+
 ## [1.1.4](https://github.com/g2a-com/klio/compare/v1.1.3...v1.1.4) (2024-10-10)
 
 
