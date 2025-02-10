@@ -1,29 +1,27 @@
 package scope
 
 import (
-	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
 )
 
 type Scope interface {
-	ValidatePaths() error
-	Initialize(*context.CLIContext) error
 	GetImplicitDependencies() []dependency.Dependency
-	InstallDependencies([]dependency.Dependency) error
+	InstallDependencies([]dependency.Dependency) ([]dependency.Dependency, []dependency.DependenciesIndexEntry, error)
 	GetInstalledDependencies() []dependency.Dependency
 	RemoveDependencies([]dependency.Dependency) error
 	GetRemovedDependencies() []dependency.Dependency
 }
 
-func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, installDir string) ([]dependency.Dependency, error) {
+func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Dependency, installDir string) ([]dependency.Dependency, []dependency.DependenciesIndexEntry, error) {
 	var installedDeps []dependency.Dependency
+	var installedDepsIndex []dependency.DependenciesIndexEntry
 
 	for _, dep := range toInstall {
-
-		if err := depsMgr.InstallDependency(&dep, installDir); err != nil {
-			return nil, err
+		depIndexEntry, err := depsMgr.InstallDependency(&dep, installDir)
+		if err != nil {
+			return nil, nil, err
 		}
 
 		if dep.Alias == "" {
@@ -33,9 +31,10 @@ func installDependencies(depsMgr *manager.Manager, toInstall []dependency.Depend
 		}
 
 		installedDeps = append(installedDeps, dep)
+		installedDepsIndex = append(installedDepsIndex, *depIndexEntry)
 	}
 
-	return installedDeps, nil
+	return installedDeps, installedDepsIndex, nil
 }
 
 func removeDependencies(depsMgr *manager.Manager, toRemove []dependency.Dependency, installDir string) []dependency.Dependency {

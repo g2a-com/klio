@@ -18,6 +18,8 @@ import (
 	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/env"
 	"github.com/g2a-com/klio/internal/log"
+	"github.com/g2a-com/klio/internal/project"
+	"github.com/g2a-com/klio/internal/scope"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +38,13 @@ func loadExternalCommand(ctx context.CLIContext, rootCmd *cobra.Command, dep dep
 	if err != nil {
 		log.Warnf("Cannot load command: %s", err)
 		return
+	}
+
+	updatedDep, err := autoDownloadCommand(&ctx, dep)
+	if err != nil {
+		log.Warnf("Cannot auto update command: %s", err)
+	} else {
+		dep = *updatedDep
 	}
 
 	newCmd := &cobra.Command{
@@ -210,4 +219,60 @@ func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEn
 	} else {
 		msg <- fmt.Sprintf("New version of this command is available, but it may introduce some BREAKING CHANGES. Please consider updating it using:\n    %s", getInstallCmd(update.Breaking))
 	}
+}
+
+func autoDownloadCommand(ctx *context.CLIContext, dep dependency.DependenciesIndexEntry) (*dependency.DependenciesIndexEntry, error) {
+
+	args := os.Args[1:]
+	if len(args) == 0 {
+		return &dep, nil
+	} else {
+		command := args[0]
+		if command != dep.Alias {
+			return &dep, nil
+		}
+	}
+
+	skipAutoDownload := false
+	if skipAutoDownloadStr, exists := os.LookupEnv(env.KLIO_SKIP_PROJECT_COMMAND_AUTO_DOWNLOAD); exists {
+		if v, err := strconv.ParseBool(skipAutoDownloadStr); err != nil {
+			return nil, fmt.Errorf("could not parse boolean value of %s, err: %s", env.KLIO_SKIP_PROJECT_COMMAND_AUTO_DOWNLOAD, err.Error())
+		} else {
+			skipAutoDownload = v
+		}
+	}
+
+	updatedDep := dep
+	if isProjectScope := ctx.Paths.IsProject(dep.Path); isProjectScope && !skipAutoDownload {
+		projectConfig, err := project.LoadProjectConfig(ctx.Paths.ProjectConfigFile)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load project config: %s", err)
+		}
+		projectDependency := projectConfig.GetDependency(dep.Alias)
+
+		if projectDependency != nil && projectDependency.Version != "" && projectDependency.Version != dep.Version {
+			localScope, err := scope.NewLocal(ctx, false, false)
+			if err != nil {
+				return nil, fmt.Errorf("cannot initialize local scope: %s", err)
+			}
+
+			log.Infof(`Installed %[1]s@%[2]s but project config defines %[1]s@%[3]s, downloading %[1]s@%[3]s now...`, dep.Alias, dep.Version, projectDependency.Version)
+
+			_, installedDep, err := localScope.InstallDependencies([]dependency.Dependency{
+				{
+					Name:     dep.Name,
+					Registry: dep.Registry,
+					Version:  projectDependency.Version,
+					Alias:    dep.Alias,
+				},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("cannot install dependency: %s", err)
+			} else {
+				updatedDep = installedDep[0]
+				updatedDep.Path = filepath.Join(ctx.Paths.ProjectInstallDir, updatedDep.Path)
+			}
+		}
+	}
+	return &updatedDep, nil
 }

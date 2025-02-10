@@ -35,18 +35,13 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 
 func removeCommand(ctx context.CLIContext, opts *options, args []string) {
 	var removeScope scope.Scope
+	var err error
 
 	if opts.Global {
-		removeScope = scope.NewGlobal(ctx.Paths.GlobalInstallDir)
+		removeScope, err = scope.NewGlobal(&ctx)
 	} else {
-		removeScope = scope.NewLocal(ctx.Paths.ProjectConfigFile, ctx.Paths.ProjectInstallDir, false, false)
+		removeScope, err = scope.NewLocal(&ctx, false, false)
 	}
-
-	err := removeScope.ValidatePaths()
-	if err != nil {
-		log.Fatalf("validation of paths failed: %s", err)
-	}
-	err = removeScope.Initialize(&ctx)
 	if err != nil {
 		log.Fatalf("scope initialization failed: %s", err)
 	}

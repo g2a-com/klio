@@ -20,11 +20,21 @@ type global struct {
 	installDir        string
 }
 
-func NewGlobal(globalInstallDir string) *global {
-	return &global{installDir: globalInstallDir, os: afero.NewOsFs()}
+func NewGlobal(ctx *context.CLIContext) (*global, error) {
+	g := &global{
+		installDir: ctx.Paths.GlobalInstallDir,
+		os:         afero.NewOsFs(),
+	}
+	if err := g.validatePaths(); err != nil {
+		return nil, err
+	}
+	if err := g.initialize(ctx); err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
-func (g *global) ValidatePaths() error {
+func (g *global) validatePaths() error {
 	if _, err := g.os.Stat(g.installDir); os.IsNotExist(err) {
 		// make sure install dir exists
 		err = g.os.MkdirAll(g.installDir, standardDirPermission)
@@ -37,7 +47,7 @@ func (g *global) ValidatePaths() error {
 	return nil
 }
 
-func (g *global) Initialize(ctx *context.CLIContext) error {
+func (g *global) initialize(ctx *context.CLIContext) error {
 	// initialize dependency manager
 	g.dependencyManager = manager.NewManager()
 	g.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
@@ -49,21 +59,21 @@ func (g *global) GetImplicitDependencies() []dependency.Dependency {
 	return []dependency.Dependency{}
 }
 
-func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) error {
+func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) ([]dependency.Dependency, []dependency.DependenciesIndexEntry, error) {
 	if len(listOfCommands) != allowedNumberOfGlobalCommands {
-		return fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
+		return nil, nil, fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
 			len(listOfCommands), allowedNumberOfGlobalCommands)
 	}
 
 	dep := listOfCommands
 
-	installedDeps, err := installDependencies(g.dependencyManager, dep, g.installDir)
+	installedDeps, installedDepsEntries, err := installDependencies(g.dependencyManager, dep, g.installDir)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	g.installedDeps = installedDeps
 
-	return nil
+	return installedDeps, installedDepsEntries, nil
 }
 
 func (g *global) GetInstalledDependencies() []dependency.Dependency {

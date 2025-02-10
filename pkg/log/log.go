@@ -40,7 +40,7 @@ const (
 	MaxLevel = log.MaxLevel
 )
 
-// NewLogger returns a new logger instance with defined output and default level
+// NewLogger returns a new logger instance with defined output and default level.
 func NewLogger(out io.Writer, defaultLevel Level) *log.Logger {
 	return log.NewLogger(out).WithDefaultLevel(defaultLevel)
 }
@@ -50,7 +50,7 @@ func SetLevel(level string) {
 	log.SetLevel(level)
 }
 
-// SetLevelFromEnv sets minimum level for logs based on environment variables
+// SetLevelFromEnv sets minimum level for logs based on environment variables.
 func SetLevelFromEnv() {
 	log.SetLevelFromEnv()
 }
