@@ -40,7 +40,8 @@ run:
 output:
   # colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
   # default is "colored-line-number"
-  format: colored-line-number
+  formats: 
+    - format: colored-line-number
 
   # sorts results by: filepath, line and column
   sort-results: true
@@ -89,7 +90,7 @@ linters:
     - dogsled
     - errname
     - goconst
-    - gomnd
+    - mnd
     - unconvert
   fast: false
 

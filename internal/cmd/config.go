@@ -14,9 +14,11 @@ type Config struct {
 	BinPath string `yaml:"binPath,omitempty" validate:"required,file"`
 	// Description of the command used by core "klio" binary in order to show usage.
 	Description string `yaml:"description,omitempty"`
+	// Version of currently installed command
+	Version string `yaml:"version,omitempty"`
 }
 
-// LoadConfig reads a project configuration file.
+// LoadConfig reads a command configuration file.
 func LoadConfig(filePath string) (*Config, error) {
 	commandConfig := &Config{}
 	if err := config.LoadConfigFile(commandConfig, &commandConfig.Meta, filePath); err != nil {

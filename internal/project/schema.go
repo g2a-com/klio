@@ -83,6 +83,15 @@ func (p *Config) MarshalYAML() (interface{}, error) {
 	return p.yaml, nil
 }
 
+func (p *Config) GetDependency(dependencyName string) *dependency.Dependency {
+	for _, dep := range p.Dependencies {
+		if dep.Alias == dependencyName {
+			return &dep
+		}
+	}
+	return nil
+}
+
 func minimalConfig() *yaml.Node {
 	return &yaml.Node{
 		Kind: yaml.MappingNode,

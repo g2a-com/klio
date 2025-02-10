@@ -94,7 +94,7 @@ func (mgr *Manager) GetUpdateFor(dep dependency.Dependency) (Updates, error) {
 
 // InstallDependency installs a single dependency in the installDir directory.
 // Dependency metadata is provided in dep.
-func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir string) error {
+func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir string) (*dependency.DependenciesIndexEntry, error) {
 	// == Acquire lock for updating dependencies.json ==
 	// make sure main install dir exists (necessary for lockfile setup)
 	if err := mgr.os.MkdirAll(installDir, defaultDirPermissions); err != nil {
@@ -102,10 +102,10 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	}
 	installLock, err := mgr.createLock(filepath.Join(installDir, indexLockFile))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := installLock.Acquire(); err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		err = installLock.Release()
@@ -123,55 +123,55 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 			mgr.registries[dep.Registry] = registry.NewRemote(dep.Registry)
 		}
 		if err := mgr.registries[dep.Registry].Update(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// == Search for a suitable version ==
 	registryEntry, _ := mgr.registries[dep.Registry].GetExactMatch(*dep)
 	if registryEntry == nil {
-		return &CantFindExactVersionMatchError{dep.Name, dep.Version, dep.Registry}
+		return nil, &CantFindExactVersionMatchError{dep.Name, dep.Version, dep.Registry}
 	}
 
 	// == Download tarball to a temporary file ==
 	tempFile, err := afero.TempFile(mgr.os, "", "klio-")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		_ = mgr.os.Remove(tempFile.Name())
 	}()
 	checksum, err := downloadFile(mgr.httpDownloadClient, registryEntry.URL, tempFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// == Verify checksum ==
 	if registryEntry.Checksum != "" && registryEntry.Checksum != checksum {
-		return fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, registryEntry.Checksum)
+		return nil, fmt.Errorf(`checksum of the archive (%s) is different from the one specified in the regsitry (%s)`, checksum, registryEntry.Checksum)
 	}
 
 	// == Prepare directory to install the dependency ==
 	outputRelPath := filepath.Join(dependenciesDirectoryName, checksum)
 	outputAbsPath := filepath.Join(installDir, outputRelPath)
 	if err := mgr.os.RemoveAll(outputAbsPath); err != nil {
-		return fmt.Errorf("unable to remove directory: %s due to %s", outputAbsPath, err)
+		return nil, fmt.Errorf("unable to remove directory: %s due to %s", outputAbsPath, err)
 	}
 	if err := mgr.os.MkdirAll(outputAbsPath, defaultDirPermissions); err != nil {
-		return fmt.Errorf("unable to create directory: %s due to %s", outputAbsPath, err)
+		return nil, fmt.Errorf("unable to create directory: %s due to %s", outputAbsPath, err)
 	}
 
 	// == Extract tarball into the installation directory ==
 	_, _ = tempFile.Seek(0, io.SeekStart)
 	if err := tarball.Extract(tempFile, mgr.os, outputAbsPath); err != nil {
-		return err
+		return nil, err
 	}
 
 	// == Add dependency to dependencies.json ==
 	indexFilePath := filepath.Join(installDir, indexFileName)
 	err = mgr.dependencyIndexHandler.LoadDependencyIndex(indexFilePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var newEntries, oldEntries []dependency.DependenciesIndexEntry
 	for _, entry := range mgr.dependencyIndexHandler.GetEntries() {
@@ -186,29 +186,29 @@ func (mgr *Manager) InstallDependency(dep *dependency.Dependency, installDir str
 	for _, entry := range oldEntries {
 		absPath := filepath.Join(installDir, entry.Path)
 		if err := mgr.os.RemoveAll(absPath); err != nil {
-			return fmt.Errorf("unable to remove directory: %s due to %s", absPath, err)
+			return nil, fmt.Errorf("unable to remove directory: %s due to %s", absPath, err)
 		}
 	}
 
 	dep.Version = registryEntry.Version
 
-	mgr.dependencyIndexHandler.SetEntries(
-		append(newEntries, dependency.DependenciesIndexEntry{
-			Alias:    dep.Alias,
-			Registry: dep.Registry,
-			Name:     dep.Name,
-			Version:  registryEntry.Version,
-			OS:       registryEntry.OS,
-			Arch:     registryEntry.Arch,
-			Checksum: registryEntry.Checksum,
-			Path:     outputRelPath,
-		}),
-	)
-	if err := mgr.dependencyIndexHandler.SaveDependencyIndex(); err != nil {
-		return err
+	dependencyIndexEntry := dependency.DependenciesIndexEntry{
+		Alias:    dep.Alias,
+		Registry: dep.Registry,
+		Name:     dep.Name,
+		Version:  registryEntry.Version,
+		OS:       registryEntry.OS,
+		Arch:     registryEntry.Arch,
+		Checksum: registryEntry.Checksum,
+		Path:     outputRelPath,
 	}
 
-	return nil
+	mgr.dependencyIndexHandler.SetEntries(append(newEntries, dependencyIndexEntry))
+	if err := mgr.dependencyIndexHandler.SaveDependencyIndex(); err != nil {
+		return nil, err
+	}
+
+	return &dependencyIndexEntry, nil
 }
 
 // RemoveDependency removes a single dependency in the installDir directory.

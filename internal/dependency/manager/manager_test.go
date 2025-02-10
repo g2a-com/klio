@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/g2a-com/klio/internal/context"
+	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/g2a-com/klio/internal/dependency/registry"
 	"github.com/g2a-com/klio/internal/lock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	"github.com/g2a-com/klio/internal/context"
-	"github.com/g2a-com/klio/internal/dependency"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -113,7 +112,7 @@ func (s *managerTestingSuite) TestGetUpdateFor() {
 
 func (s *managerTestingSuite) TestManagerInstallDependency() {
 	depToInstall := s.DepToInstall
-	err := s.mgr.InstallDependency(&depToInstall, s.InstallDir)
+	_, err := s.mgr.InstallDependency(&depToInstall, s.InstallDir)
 	if s.CommandInstallShouldFailWith != nil {
 		assert.ErrorContains(s.T(), err, s.CommandInstallShouldFailWith.Error())
 	} else {

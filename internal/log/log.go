@@ -26,7 +26,7 @@ func SetLevel(levelName string) {
 	}
 }
 
-// SetLevelFromEnv sets minimum level for logs based on environment variables
+// SetLevelFromEnv sets minimum level for logs based on environment variables.
 func SetLevelFromEnv() {
 	SetLevel(os.Getenv(env.KLIO_LOG_LEVEL))
 }
