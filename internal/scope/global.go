@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-const allowedNumberOfGlobalCommands = 1
-
 type global struct {
 	os                afero.Fs
 	dependencyManager *manager.Manager
@@ -51,23 +49,22 @@ func (g *global) initialize(ctx *context.CLIContext) error {
 	// initialize dependency manager
 	g.dependencyManager = manager.NewManager()
 	g.dependencyManager.DefaultRegistry = ctx.Config.DefaultRegistry
+	installedCommands := g.dependencyManager.GetInstalledCommands(ctx.Paths)
+	for _, command := range installedCommands {
+		if ctx.Paths.IsGlobal(command.Path) {
+			g.installedDeps = append(g.installedDeps, command.ToDependency())
+		}
+	}
 
 	return nil
 }
 
 func (g *global) GetImplicitDependencies() []dependency.Dependency {
-	return []dependency.Dependency{}
+	return g.installedDeps
 }
 
 func (g *global) InstallDependencies(listOfCommands []dependency.Dependency) ([]dependency.Dependency, []dependency.DependenciesIndexEntry, error) {
-	if len(listOfCommands) != allowedNumberOfGlobalCommands {
-		return nil, nil, fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
-			len(listOfCommands), allowedNumberOfGlobalCommands)
-	}
-
-	dep := listOfCommands
-
-	installedDeps, installedDepsEntries, err := installDependencies(g.dependencyManager, dep, g.installDir)
+	installedDeps, installedDepsEntries, err := installDependencies(g.dependencyManager, listOfCommands, g.installDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -81,14 +78,11 @@ func (g *global) GetInstalledDependencies() []dependency.Dependency {
 }
 
 func (g *global) RemoveDependencies(listOfCommands []dependency.Dependency) error {
-	if len(listOfCommands) != allowedNumberOfGlobalCommands {
-		return fmt.Errorf("wrong number of commands provided; provided %d, expected %d",
-			len(listOfCommands), allowedNumberOfGlobalCommands)
+	if len(listOfCommands) == 0 {
+		return fmt.Errorf("no dependencies provided for removal")
 	}
 
-	dep := listOfCommands
-
-	g.removedDeps = removeDependencies(g.dependencyManager, dep, g.installDir)
+	g.removedDeps = removeDependencies(g.dependencyManager, listOfCommands, g.installDir)
 
 	return nil
 }

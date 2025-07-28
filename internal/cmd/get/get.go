@@ -6,6 +6,7 @@ import (
 
 	"github.com/g2a-com/klio/internal/context"
 	"github.com/g2a-com/klio/internal/dependency"
+	"github.com/g2a-com/klio/internal/dependency/manager"
 	"github.com/g2a-com/klio/internal/log"
 	"github.com/g2a-com/klio/internal/scope"
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ type options struct {
 	As      string
 	Version string
 	NoInit  bool
+	Upgrade bool
 }
 
 // NewCommand creates a new getCommand command.
@@ -39,6 +41,7 @@ func NewCommand(ctx context.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&opts.As, "as", "", "changes name under which dependency is installed")
 	cmd.Flags().BoolVar(&opts.NoInit, "no-init", false, "prevent creating config file if not exist")
 	cmd.Flags().StringVar(&opts.Version, "version", "*", "version range of the dependency")
+	cmd.Flags().BoolVar(&opts.Upgrade, "upgrade", false, fmt.Sprintf("download the latest available version instead of the one defined in %s.yaml", ctx.Config.CommandName))
 
 	return cmd
 }
@@ -60,6 +63,9 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 	switch len(args) {
 	case 0:
 		dependencies = getScope.GetImplicitDependencies()
+		if opts.Upgrade {
+			dependencies = getLatestVersions(ctx, dependencies)
+		}
 	case 1:
 		dependencies = []dependency.Dependency{
 			{
@@ -68,6 +74,9 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 				Version:  opts.Version,
 				Alias:    opts.As,
 			},
+		}
+		if opts.Upgrade {
+			dependencies = getLatestVersions(ctx, dependencies)
 		}
 	default:
 		log.Fatalf("max one command can be provided for install; provided %d", len(args))
@@ -83,4 +92,34 @@ func getCommand(ctx context.CLIContext, opts *options, args []string) {
 		formattingArray = append(formattingArray, fmt.Sprintf("%s:%s", d.Alias, d.Version))
 	}
 	log.Infof("All dependencies (%s) installed successfully", strings.Join(formattingArray, ","))
+}
+
+// getLatestVersions updates the version field of dependencies to the latest available version.
+func getLatestVersions(ctx context.CLIContext, deps []dependency.Dependency) []dependency.Dependency {
+	manager := manager.NewManager()
+	manager.DefaultRegistry = ctx.Config.DefaultRegistry
+
+	for i := range deps {
+		dep := &deps[i]
+
+		// Get latest version using GetUpdateFor
+		updates, err := manager.GetUpdateFor(*dep)
+		if err != nil {
+			log.Debugf("Failed to get updates for %s: %s", dep.Name, err)
+			continue
+		}
+
+		// Use the latest version available
+		latestVersion := updates.Breaking
+		if latestVersion == "" {
+			latestVersion = updates.NonBreaking
+		}
+
+		if latestVersion != "" {
+			dep.Version = latestVersion
+			log.Infof("Upgrading %s to latest version: %s", dep.Name, latestVersion)
+		}
+	}
+
+	return deps
 }

@@ -41,6 +41,15 @@ type DependenciesIndexEntry struct {
 	Path     string `json:"path"`
 }
 
+func (di *DependenciesIndexEntry) ToDependency() Dependency {
+	return Dependency{
+		Name:     di.Name,
+		Registry: di.Registry,
+		Version:  di.Version,
+		Alias:    di.Alias,
+	}
+}
+
 type IndexHandler interface {
 	LoadDependencyIndex(filePath string) error
 	SaveDependencyIndex() error
