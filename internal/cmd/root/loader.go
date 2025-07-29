@@ -222,7 +222,6 @@ func getUpdateMessage(ctx context.CLIContext, dep dependency.DependenciesIndexEn
 }
 
 func autoDownloadCommand(ctx *context.CLIContext, dep dependency.DependenciesIndexEntry) (*dependency.DependenciesIndexEntry, error) {
-
 	args := os.Args[1:]
 	if len(args) == 0 {
 		return &dep, nil
