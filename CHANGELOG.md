@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/g2a-com/klio/compare/v1.2.0...v1.3.0) (2025-07-29)
+
+
+### Features
+
+* add --upgrade flag ([#88](https://github.com/g2a-com/klio/issues/88)) ([deffa47](https://github.com/g2a-com/klio/commit/deffa4742c8279a8c0efb23ad9bb1d565aa82fd0))
+
 ## [1.2.0](https://github.com/g2a-com/klio/compare/v1.1.4...v1.2.0) (2025-02-10)
 
 
